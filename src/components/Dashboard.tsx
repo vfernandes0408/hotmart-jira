@@ -82,7 +82,7 @@ const OpenAIStatus = () => {
       onClick={!hasApiKey ? () => setIsModalOpen(true) : undefined}
     >
       {hasApiKey
-        ? "🤖 OpenAI API configurada"
+        ? "🤖 OpenAI API configurado"
         : "❌ OpenAI API não configurada"}
     </div>
   );
