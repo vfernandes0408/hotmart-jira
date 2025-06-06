@@ -1,16 +1,15 @@
-FROM node:20
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Atualiza o npm
-RUN npm install -g npm@latest
+# Install basic dependencies for building native modules
+RUN apk add --no-cache git
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Copy only package.json first
+COPY package.json ./
 
-# Clean npm cache and install dependencies
-RUN npm cache clean --force && \
-    npm install --verbose
+# Install dependencies without package-lock
+RUN npm install
 
 # Copy the rest of the application code
 COPY . .
