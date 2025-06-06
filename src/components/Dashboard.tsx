@@ -20,9 +20,6 @@ import {
   Brain,
   Save,
   List,
-  User,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import JiraConnector from "./JiraConnector";
 import CycleTimeScatterplot from "./CycleTimeScatterplot";
@@ -30,10 +27,9 @@ import MetricsCards from "./MetricsCards";
 import FiltersPanel from "./FiltersPanel";
 import TrendChart from "./TrendChart";
 import PerformanceChart from "./PerformanceChart";
-import CategoryDebugger from "./CategoryDebugger";
+
 import LabelComparison from "./LabelComparison";
 import TicketList from "./TicketList";
-import StoryPointsByAssignee from "./StoryPointsByAssignee";
 import { JiraIssue, Filters } from "@/types/jira";
 
 const SESSION_KEY = "jira_dashboard_session";
@@ -360,11 +356,8 @@ const Dashboard = () => {
     }
 
     if (newFilters.assignee) {
-      const assignees = Array.isArray(newFilters.assignee)
-        ? newFilters.assignee
-        : [newFilters.assignee];
-      filtered = filtered.filter((item: JiraIssue) =>
-        assignees.includes(item.assignee)
+      filtered = filtered.filter(
+        (item: JiraIssue) => item.assignee === newFilters.assignee
       );
     }
 
@@ -415,9 +408,9 @@ const Dashboard = () => {
 
   return (
     <div className="h-screen bg-gradient-to-br from-zinc-50 via-neutral-50 to-stone-100 flex flex-col overflow-hidden">
-      {/* Header - Optimized for MacBook Air 13" */}
+      {/* Header - Responsive */}
       <header className="flex-shrink-0 border-b border-zinc-200/50 bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto px-3 py-2">
+        <div className="mx-auto px-3 lg:px-6 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <svg
@@ -470,9 +463,12 @@ const Dashboard = () => {
                     : "bg-amber-100 text-amber-700 border border-amber-200"
                 }`}
               >
-                {isConnected ? "🟢 Conectado" : "🟡 Desconectado"}
+                <span className="hidden sm:inline">{isConnected ? "🟢 Conectado" : "🟡 Desconectado"}</span>
+                <span className="sm:hidden">{isConnected ? "🟢" : "🟡"}</span>
               </div>
-              <OpenAIStatus />
+              <div className="hidden md:block">
+                <OpenAIStatus />
+              </div>
               {isConnected && (
                 <Button
                   onClick={handleLogout}
@@ -481,7 +477,7 @@ const Dashboard = () => {
                   className="px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:text-red-800 transition-all"
                 >
                   <LogOut className="w-3 h-3 mr-1" />
-                  Sair
+                  <span className="hidden sm:inline">Sair</span>
                 </Button>
               )}
             </div>
@@ -489,32 +485,27 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* Main Content - Optimized for 900px height */}
+      {/* Main Content - Responsive */}
       <main className="flex-1 overflow-hidden">
-        <div className="mx-auto px-3 py-2 h-full">
+        <div className="mx-auto px-3 lg:px-6 py-2 h-full">
           {!isConnected ? (
             <div className="h-full flex items-center justify-center">
-              <div className="w-full max-w-xxl">
+              <div className="w-full max-w-4xl">
                 <JiraConnector onConnect={handleJiraConnect} />
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col gap-2">
-              {/* Debug de Categorias - Compact */}
-              <div className="flex-shrink-0">
-                <CategoryDebugger data={jiraData} />
-              </div>
-
-              {/* Metrics Cards - Compact height */}
+            <div className="h-full flex flex-col gap-2 lg:gap-4">
+              {/* Metrics Cards - Responsive */}
               <div className="flex-shrink-0">
                 <MetricsCards data={filteredData} />
               </div>
 
               {/* Main Dashboard Content - Optimized grid for 13" */}
-              <div className="flex-1 flex gap-3 min-h-0">
+              <div className="flex-1 grid grid-cols-4 gap-3 min-h-0">
                 {/* Filters Panel - Compact sidebar */}
-                <div className={`flex flex-col transition-all duration-300 ${isSidebarVisible ? 'w-80' : 'w-0'}`}>
-                  <div className={`bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm h-full overflow-hidden transition-all duration-300 ${isSidebarVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <div className="col-span-1 flex flex-col">
+                  <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm h-full overflow-hidden">
                     <div className="p-3 border-b border-zinc-200/50">
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-semibold text-zinc-800 flex items-center gap-1.5">
@@ -532,7 +523,7 @@ const Dashboard = () => {
                         </Button>
                       </div>
                     </div>
-                    <div className="flex-1 overflow-auto p-3">
+                    <div className="max-h-60 lg:flex-1 lg:max-h-none overflow-auto p-3">
                       <FiltersPanel
                         data={jiraData}
                         filters={filters}
@@ -570,50 +561,46 @@ const Dashboard = () => {
                 )}
 
                 {/* Charts Area - Optimized for remaining space */}
-                <div className="flex-1 flex flex-col min-h-0">
+                <div className="col-span-3 flex flex-col min-h-0">
                   <Tabs
                     defaultValue="scatterplot"
                     className="flex flex-col h-full"
                   >
-                    <TabsList className="flex-shrink-0 grid w-full grid-cols-6 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
+                    <TabsList className="flex-shrink-0 grid w-full grid-cols-5 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
                       <TabsTrigger
                         value="scatterplot"
-                        className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-blue-50 hover:text-blue-700"
+                        className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-blue-50 hover:text-blue-700"
                       >
                         <BarChart3 className="w-3 h-3" />
-                        Cycle Time
+                        <span className="hidden sm:inline">Cycle Time</span>
+                        <span className="sm:hidden">Cycle</span>
                       </TabsTrigger>
                       <TabsTrigger
                         value="trends"
-                        className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700"
+                        className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700"
                       >
                         <TrendingUp className="w-3 h-3" />
-                        Tendências
+                        <span className="hidden sm:inline">Tendências</span>
+                        <span className="sm:hidden">Trend</span>
                       </TabsTrigger>
                       <TabsTrigger
                         value="performance"
-                        className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-purple-50 hover:text-purple-700"
+                        className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-purple-50 hover:text-purple-700"
                       >
                         <Target className="w-3 h-3" />
-                        Performance
+                        <span className="hidden sm:inline">Performance</span>
+                        <span className="sm:hidden">Perf</span>
                       </TabsTrigger>
                       <TabsTrigger
                         value="comparison"
-                        className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-orange-50 hover:text-orange-700"
+                        className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-orange-50 hover:text-orange-700"
                       >
                         <Activity className="w-3 h-3" />
                         IA
                       </TabsTrigger>
                       <TabsTrigger
-                        value="storypoints"
-                        className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700"
-                      >
-                        <User className="w-3 h-3" />
-                        Story Points
-                      </TabsTrigger>
-                      <TabsTrigger
                         value="tickets"
-                        className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-slate-500 data-[state=active]:to-slate-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-slate-50 hover:text-slate-700"
+                        className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-slate-500 data-[state=active]:to-slate-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-slate-50 hover:text-slate-700"
                       >
                         <List className="w-3 h-3" />
                         Tickets
@@ -647,13 +634,6 @@ const Dashboard = () => {
                           data={filteredData}
                           projectKey={projectKey}
                         />
-                      </TabsContent>
-
-                      <TabsContent
-                        value="storypoints"
-                        className="h-full m-0 p-3"
-                      >
-                        <StoryPointsByAssignee data={filteredData} />
                       </TabsContent>
 
                       <TabsContent

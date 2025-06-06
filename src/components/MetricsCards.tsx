@@ -17,8 +17,7 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
         avgCycleTime: 0,
         avgLeadTime: 0,
         throughput: 0,
-        completionRate: 0,
-        categories: []
+        completionRate: 0
       };
     }
 
@@ -42,17 +41,13 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       item.resolved && new Date(item.resolved) >= thirtyDaysAgo
     );
 
-    // Obter categorias únicas
-    const categories = [...new Set(data.map(item => item.category).filter(Boolean))];
-
     return {
       totalIssues: data.length,
       completedIssues: completedIssues.length,
       avgCycleTime: avgCycleTime,
       avgLeadTime: avgLeadTime,
       throughput: recentCompletions.length,
-      completionRate: data.length > 0 ? (completedIssues.length / data.length) * 100 : 0,
-      categories: categories
+      completionRate: data.length > 0 ? (completedIssues.length / data.length) * 100 : 0
     };
   }, [data]);
 
@@ -116,33 +111,34 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
   return (
     <div className="space-y-4">
       {/* Cards de métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
         {metricsConfig.map((metric, index) => {
           const Icon = metric.icon;
           
           return (
             <Card key={index} className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:scale-105">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`p-3 rounded-xl bg-gradient-to-br ${metric.bgColor}`}>
-                    <Icon className={`w-6 h-6 ${metric.textColor}`} />
+              <CardContent className="p-3 sm:p-4 lg:p-6">
+                <div className="flex items-center justify-between mb-2 sm:mb-4">
+                  <div className={`p-2 sm:p-3 rounded-xl bg-gradient-to-br ${metric.bgColor}`}>
+                    <Icon className={`w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 ${metric.textColor}`} />
                   </div>
-                  <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${metric.color}`} />
+                  <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gradient-to-r ${metric.color}`} />
                 </div>
                 
                 <div className="space-y-1">
-                  <p className="text-2xl font-bold text-foreground">
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">
                     {metric.format(metric.value)}
                   </p>
-                  <p className="text-sm text-muted-foreground font-medium">
+                  <p className="text-xs sm:text-sm text-muted-foreground font-medium line-clamp-2">
                     {metric.title}
                   </p>
                 </div>
                 
-                {/* Indicador de tendência (placeholder) */}
-                <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
+                {/* Indicador de tendência (placeholder) - Hide on small screens */}
+                <div className="mt-2 sm:mt-3 hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
                   <div className="w-1 h-1 bg-green-500 rounded-full" />
-                  <span>vs. período anterior</span>
+                  <span className="hidden lg:inline">vs. período anterior</span>
+                  <span className="lg:hidden">vs. anterior</span>
                 </div>
               </CardContent>
             </Card>

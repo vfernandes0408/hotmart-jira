@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from 'recharts';
 import { Clock, TrendingUp, BarChart3 } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
+import { JiraLink, renderTextWithJiraLinks } from '@/utils/jiraLinks';
 
 interface CycleTimeScatterplotProps {
   data: JiraIssue[];
@@ -108,8 +109,14 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
       const data = payload[0].payload;
       return (
         <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{data.id}</p>
-          <p className="text-sm text-gray-600 mb-2">{data.summary}</p>
+          <div className="font-semibold text-gray-900 mb-1">
+            <JiraLink 
+              ticketId={data.id}
+              className="text-blue-600 hover:text-blue-800"
+              showIcon={true}
+            />
+          </div>
+          <div className="text-sm text-gray-600 mb-2">{renderTextWithJiraLinks(data.summary)}</div>
           <div className="space-y-1 text-sm">
             <p><span className="font-medium">Story Points:</span> {data.storyPoints}</p>
             <p><span className="font-medium">Cycle Time:</span> {data.cycleTime} dias</p>

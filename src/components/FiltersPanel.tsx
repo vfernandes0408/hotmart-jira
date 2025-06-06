@@ -103,27 +103,27 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
   }).length;
 
   return (
-    <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm sticky top-6">
-      <CardHeader>
+    <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm lg:sticky lg:top-6">
+      <CardHeader className="pb-3 lg:pb-6">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-blue-600" />
-            Filtros
+            <Filter className="w-4 h-4 lg:w-5 lg:h-5 text-blue-600" />
+            <span className="text-sm lg:text-base">Filtros</span>
           </CardTitle>
           {activeFiltersCount > 0 && (
-            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
               {activeFiltersCount} ativo{activeFiltersCount > 1 ? 's' : ''}
             </Badge>
           )}
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 lg:space-y-4">
         {/* Projeto */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Projeto</Label>
+        <div className="space-y-1.5 lg:space-y-2">
+          <Label className="text-xs lg:text-sm font-medium">Projeto</Label>
           <Select value={filters.project || 'all'} onValueChange={(value) => handleFilterChange('project', value)}>
-            <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
+            <SelectTrigger className="h-8 lg:h-10 text-xs lg:text-sm transition-all duration-200 focus:ring-2 focus:ring-blue-500">
               <SelectValue placeholder="Selecionar projeto" />
             </SelectTrigger>
             <SelectContent>
@@ -136,9 +136,9 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
         </div>
 
         {/* Tipo de Issue */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Tipo de Issue</Label>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
+        <div className="space-y-1.5 lg:space-y-2">
+          <Label className="text-xs lg:text-sm font-medium">Tipo de Issue</Label>
+          <div className="space-y-1.5 lg:space-y-2 max-h-32 lg:max-h-40 overflow-y-auto">
             {uniqueIssueTypes.map(type => {
               const currentTypes = Array.isArray(filters.issueType) 
                 ? filters.issueType 
@@ -151,10 +151,11 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
                     id={`issue-type-${type}`}
                     checked={isChecked}
                     onCheckedChange={(checked) => handleIssueTypeChange(type, !!checked)}
+                    className="h-3 w-3 lg:h-4 lg:w-4"
                   />
                   <Label 
                     htmlFor={`issue-type-${type}`} 
-                    className="text-sm cursor-pointer flex-1"
+                    className="text-xs lg:text-sm cursor-pointer flex-1"
                   >
                     {type}
                   </Label>
@@ -167,13 +168,13 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
 
 
         {/* Labels */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium flex items-center gap-2">
-            <Tag className="w-4 h-4" />
+        <div className="space-y-1.5 lg:space-y-2">
+          <Label className="text-xs lg:text-sm font-medium flex items-center gap-2">
+            <Tag className="w-3 h-3 lg:w-4 lg:h-4" />
             Labels
           </Label>
           <Select value={filters.labels || 'all'} onValueChange={(value) => handleFilterChange('labels', value)}>
-            <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
+            <SelectTrigger className="h-8 lg:h-10 text-xs lg:text-sm transition-all duration-200 focus:ring-2 focus:ring-blue-500">
               <SelectValue placeholder="Selecionar label" />
             </SelectTrigger>
             <SelectContent>
@@ -186,10 +187,10 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
         </div>
 
         {/* Status */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Status</Label>
+        <div className="space-y-1.5 lg:space-y-2">
+          <Label className="text-xs lg:text-sm font-medium">Status</Label>
           <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value)}>
-            <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
+            <SelectTrigger className="h-8 lg:h-10 text-xs lg:text-sm transition-all duration-200 focus:ring-2 focus:ring-blue-500">
               <SelectValue placeholder="Selecionar status" />
             </SelectTrigger>
             <SelectContent>
@@ -204,52 +205,39 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
         {/* Assignee */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">Responsável</Label>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
-            {uniqueAssignees.map(assignee => {
-              const currentAssignees = Array.isArray(filters.assignee) 
-                ? filters.assignee 
-                : filters.assignee ? [filters.assignee] : [];
-              const isChecked = currentAssignees.includes(assignee);
-              
-              return (
-                <div key={assignee} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`assignee-${assignee}`}
-                    checked={isChecked}
-                    onCheckedChange={(checked) => handleAssigneeChange(assignee, !!checked)}
-                  />
-                  <Label 
-                    htmlFor={`assignee-${assignee}`} 
-                    className="text-sm cursor-pointer flex-1"
-                  >
-                    {assignee}
-                  </Label>
-                </div>
-              );
-            })}
-          </div>
+          <Select value={filters.assignee || 'all'} onValueChange={(value) => handleFilterChange('assignee', value)}>
+            <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
+              <SelectValue placeholder="Selecionar responsável" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os responsáveis</SelectItem>
+              {uniqueAssignees.map(assignee => (
+                <SelectItem key={assignee} value={assignee}>{assignee}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Período */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
+        <div className="space-y-1.5 lg:space-y-2">
+          <Label className="text-xs lg:text-sm font-medium flex items-center gap-2">
+            <Calendar className="w-3 h-3 lg:w-4 lg:h-4" />
             Período
           </Label>
-          <div className="space-y-2">
+          <div className="space-y-1.5 lg:space-y-2">
             <Input
               type="date"
               placeholder="Data inicial"
               value={filters.dateRange?.start || ''}
               onChange={(e) => handleDateRangeChange('start', e.target.value)}
-              className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+              className="h-8 lg:h-10 text-xs lg:text-sm transition-all duration-200 focus:ring-2 focus:ring-blue-500"
             />
             <Input
               type="date"
               placeholder="Data final"
               value={filters.dateRange?.end || ''}
               onChange={(e) => handleDateRangeChange('end', e.target.value)}
-              className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+              className="h-8 lg:h-10 text-xs lg:text-sm transition-all duration-200 focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -259,19 +247,19 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
           <Button 
             variant="outline" 
             onClick={clearFilters}
-            className="w-full mt-4 hover:bg-gray-50 transition-all duration-200"
+            className="w-full h-8 lg:h-10 text-xs lg:text-sm mt-3 lg:mt-4 hover:bg-gray-50 transition-all duration-200"
           >
-            <RotateCcw className="w-4 h-4 mr-2" />
+            <RotateCcw className="w-3 h-3 lg:w-4 lg:h-4 mr-1 lg:mr-2" />
             Limpar Filtros
           </Button>
         )}
 
         {/* Resumo dos dados filtrados */}
-        <div className="mt-6 p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600">
+        <div className="mt-3 lg:mt-6 p-2 lg:p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs lg:text-sm text-gray-600">
             <span className="font-medium">{data.length}</span> issues no total
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 mt-1 hidden lg:block">
             Dados atualizados em tempo real
           </p>
         </div>
