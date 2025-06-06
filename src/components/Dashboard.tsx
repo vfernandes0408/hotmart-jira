@@ -19,6 +19,7 @@ import {
   LogOut,
   Brain,
   Save,
+  List,
 } from "lucide-react";
 import JiraConnector from "./JiraConnector";
 import CycleTimeScatterplot from "./CycleTimeScatterplot";
@@ -28,6 +29,7 @@ import TrendChart from "./TrendChart";
 import PerformanceChart from "./PerformanceChart";
 import CategoryDebugger from "./CategoryDebugger";
 import LabelComparison from "./LabelComparison";
+import TicketList from "./TicketList";
 import { JiraIssue, Filters } from "@/types/jira";
 
 const SESSION_KEY = "jira_dashboard_session";
@@ -511,7 +513,7 @@ const Dashboard = () => {
                     defaultValue="scatterplot"
                     className="flex flex-col h-full"
                   >
-                    <TabsList className="flex-shrink-0 grid w-full grid-cols-4 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
+                    <TabsList className="flex-shrink-0 grid w-full grid-cols-5 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
                       <TabsTrigger
                         value="scatterplot"
                         className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-blue-50 hover:text-blue-700"
@@ -539,6 +541,13 @@ const Dashboard = () => {
                       >
                         <Activity className="w-3 h-3" />
                         IA
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="tickets"
+                        className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-slate-500 data-[state=active]:to-slate-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-slate-50 hover:text-slate-700"
+                      >
+                        <List className="w-3 h-3" />
+                        Tickets
                       </TabsTrigger>
                     </TabsList>
 
@@ -569,6 +578,13 @@ const Dashboard = () => {
                           data={filteredData}
                           projectKey={projectKey}
                         />
+                      </TabsContent>
+
+                      <TabsContent
+                        value="tickets"
+                        className="h-full m-0 p-3"
+                      >
+                        <TicketList data={filteredData} />
                       </TabsContent>
                     </div>
                   </Tabs>
