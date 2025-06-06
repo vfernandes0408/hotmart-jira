@@ -20,6 +20,9 @@ import {
   Brain,
   Save,
   List,
+  User,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import JiraConnector from "./JiraConnector";
 import CycleTimeScatterplot from "./CycleTimeScatterplot";
@@ -30,6 +33,7 @@ import PerformanceChart from "./PerformanceChart";
 import CategoryDebugger from "./CategoryDebugger";
 import LabelComparison from "./LabelComparison";
 import TicketList from "./TicketList";
+import StoryPointsByAssignee from "./StoryPointsByAssignee";
 import { JiraIssue, Filters } from "@/types/jira";
 
 const SESSION_KEY = "jira_dashboard_session";
@@ -168,6 +172,7 @@ const Dashboard = () => {
   const [filteredData, setFilteredData] = useState<JiraIssue[]>([]);
   const [projectKey, setProjectKey] = useState<string>("");
   const [sessionTimer, setSessionTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [filters, setFilters] = useState<Filters>({
     project: "",
     issueType: "",
@@ -277,6 +282,22 @@ const Dashboard = () => {
         clearTimeout(sessionTimer);
       }
     };
+  }, [loadSession, startSessionTimer, sessionTimer]);
+
+  // Keyboard shortcut for sidebar toggle
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl/Cmd + B para toggle da sidebar
+      if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+        event.preventDefault();
+        setIsSidebarVisible(prev => !prev);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const handleJiraConnect = (
@@ -339,8 +360,11 @@ const Dashboard = () => {
     }
 
     if (newFilters.assignee) {
-      filtered = filtered.filter(
-        (item: JiraIssue) => item.assignee === newFilters.assignee
+      const assignees = Array.isArray(newFilters.assignee)
+        ? newFilters.assignee
+        : [newFilters.assignee];
+      filtered = filtered.filter((item: JiraIssue) =>
+        assignees.includes(item.assignee)
       );
     }
 
@@ -487,15 +511,26 @@ const Dashboard = () => {
               </div>
 
               {/* Main Dashboard Content - Optimized grid for 13" */}
-              <div className="flex-1 grid grid-cols-4 gap-3 min-h-0">
+              <div className="flex-1 flex gap-3 min-h-0">
                 {/* Filters Panel - Compact sidebar */}
-                <div className="col-span-1 flex flex-col">
-                  <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm h-full overflow-hidden">
+                <div className={`flex flex-col transition-all duration-300 ${isSidebarVisible ? 'w-80' : 'w-0'}`}>
+                  <div className={`bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm h-full overflow-hidden transition-all duration-300 ${isSidebarVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <div className="p-3 border-b border-zinc-200/50">
-                      <h3 className="text-sm font-semibold text-zinc-800 flex items-center gap-1.5">
-                        <Filter className="w-3.5 h-3.5" />
-                        Filtros
-                      </h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-zinc-800 flex items-center gap-1.5">
+                          <Filter className="w-3.5 h-3.5" />
+                          Filtros
+                        </h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsSidebarVisible(false)}
+                          className="h-6 w-6 p-0 hover:bg-zinc-100"
+                          title="Ocultar filtros (Ctrl/Cmd + B)"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="flex-1 overflow-auto p-3">
                       <FiltersPanel
@@ -507,13 +542,40 @@ const Dashboard = () => {
                   </div>
                 </div>
 
+                {/* Toggle Button when sidebar is hidden */}
+                {!isSidebarVisible && (
+                  <div className="flex-shrink-0 mr-3">
+                    <div className="relative">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsSidebarVisible(true)}
+                        className="h-10 w-10 p-0 bg-white/80 backdrop-blur-sm border-zinc-200/50 hover:bg-white shadow-sm"
+                        title="Mostrar filtros (Ctrl/Cmd + B)"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                      {/* Indicador de filtros ativos */}
+                      {(filters.project || 
+                        (Array.isArray(filters.issueType) ? filters.issueType.length > 0 : filters.issueType) ||
+                        filters.status || 
+                        (Array.isArray(filters.assignee) ? filters.assignee.length > 0 : filters.assignee) ||
+                        filters.labels || 
+                        filters.dateRange.start || 
+                        filters.dateRange.end) && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Charts Area - Optimized for remaining space */}
-                <div className="col-span-3 flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-h-0">
                   <Tabs
                     defaultValue="scatterplot"
                     className="flex flex-col h-full"
                   >
-                    <TabsList className="flex-shrink-0 grid w-full grid-cols-5 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
+                    <TabsList className="flex-shrink-0 grid w-full grid-cols-6 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
                       <TabsTrigger
                         value="scatterplot"
                         className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-blue-50 hover:text-blue-700"
@@ -541,6 +603,13 @@ const Dashboard = () => {
                       >
                         <Activity className="w-3 h-3" />
                         IA
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="storypoints"
+                        className="flex items-center gap-1 text-xs px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-700"
+                      >
+                        <User className="w-3 h-3" />
+                        Story Points
                       </TabsTrigger>
                       <TabsTrigger
                         value="tickets"
@@ -581,10 +650,17 @@ const Dashboard = () => {
                       </TabsContent>
 
                       <TabsContent
+                        value="storypoints"
+                        className="h-full m-0 p-3"
+                      >
+                        <StoryPointsByAssignee data={filteredData} />
+                      </TabsContent>
+
+                      <TabsContent
                         value="tickets"
                         className="h-full m-0 p-3"
                       >
-                        <TicketList data={filteredData} />
+                        <TicketList data={filteredData} projectKey={projectKey} />
                       </TabsContent>
                     </div>
                   </Tabs>

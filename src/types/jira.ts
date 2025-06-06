@@ -17,7 +17,7 @@ export interface Filters {
   project: string;
   issueType: string | string[];
   status: string;
-  assignee: string;
+  assignee: string | string[];
   labels: string;
   dateRange: {
     start: string;

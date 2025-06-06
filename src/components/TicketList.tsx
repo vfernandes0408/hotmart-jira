@@ -3,16 +3,18 @@ import { JiraIssue } from "@/types/jira";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Calendar, User, Tag, BarChart3 } from "lucide-react";
+import { Search, Calendar, User, Tag, BarChart3, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface TicketListProps {
   data: JiraIssue[];
+  projectKey?: string;
 }
 
-const TicketList: React.FC<TicketListProps> = ({ data }) => {
+const TicketList: React.FC<TicketListProps> = ({ data, projectKey }) => {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
 
   // Obter lista única de status
   const allStatuses = useMemo(() => {
@@ -20,13 +22,35 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
     return statuses.sort();
   }, [data]);
 
-  // Filtrar tickets baseado nos status selecionados e termo de busca
+  // Obter lista única de labels que começam com o projectKey
+  const allLabels = useMemo(() => {
+    const labels = new Set<string>();
+    data.forEach(ticket => {
+      if (ticket.labels && Array.isArray(ticket.labels)) {
+        ticket.labels.forEach(label => {
+          if (label && label.trim() && projectKey && label.trim().startsWith(projectKey)) {
+            labels.add(label.trim());
+          }
+        });
+      }
+    });
+    return Array.from(labels).sort();
+  }, [data, projectKey]);
+
+  // Filtrar tickets baseado nos status selecionados, labels selecionadas e termo de busca
   const filteredTickets = useMemo(() => {
     let filtered = data;
 
     // Filtrar por status se algum estiver selecionado
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter(ticket => selectedStatuses.includes(ticket.status));
+    }
+
+    // Filtrar por labels se alguma estiver selecionada
+    if (selectedLabels.length > 0) {
+      filtered = filtered.filter(ticket => 
+        ticket.labels && ticket.labels.some(label => selectedLabels.includes(label))
+      );
     }
 
     // Filtrar por termo de busca
@@ -41,7 +65,7 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
     }
 
     return filtered;
-  }, [data, selectedStatuses, searchTerm]);
+  }, [data, selectedStatuses, selectedLabels, searchTerm]);
 
   // Manipular seleção de status
   const handleStatusToggle = (status: string) => {
@@ -51,6 +75,25 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
         : [...prev, status]
     );
   };
+
+  // Manipular seleção de labels
+  const handleLabelToggle = (label: string) => {
+    setSelectedLabels(prev => 
+      prev.includes(label) 
+        ? prev.filter(l => l !== label)
+        : [...prev, label]
+    );
+  };
+
+  // Limpar todos os filtros
+  const clearAllFilters = () => {
+    setSelectedStatuses([]);
+    setSelectedLabels([]);
+    setSearchTerm("");
+  };
+
+  // Verificar se há filtros ativos
+  const hasActiveFilters = selectedStatuses.length > 0 || selectedLabels.length > 0 || searchTerm.length > 0;
 
   // Função para formatar data
   const formatDate = (dateString: string) => {
@@ -95,6 +138,19 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
           />
         </div>
 
+        {/* Botão para limpar filtros */}
+        {hasActiveFilters && (
+          <div className="flex justify-end">
+            <button
+              onClick={clearAllFilters}
+              className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-red-600 bg-gray-100 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Limpar todos os filtros
+            </button>
+          </div>
+        )}
+
         {/* Filtros de Status */}
         <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 p-3">
           <h3 className="text-sm font-semibold text-zinc-800 mb-3 flex items-center gap-1.5">
@@ -123,6 +179,45 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
           {selectedStatuses.length > 0 && (
             <div className="mt-2 text-xs text-gray-600">
               {selectedStatuses.length} status selecionado{selectedStatuses.length > 1 ? 's' : ''} • {filteredTickets.length} ticket{filteredTickets.length !== 1 ? 's' : ''} encontrado{filteredTickets.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+
+        {/* Filtros de Labels */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 p-3">
+          <h3 className="text-sm font-semibold text-zinc-800 mb-3 flex items-center gap-1.5">
+            <Tag className="w-3.5 h-3.5" />
+            Filtrar por Labels {projectKey || 'do Projeto'}
+          </h3>
+          <div className="max-h-48 overflow-y-auto">
+            <div className="flex flex-wrap gap-2">
+              {allLabels.map(label => (
+                <div key={label} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`label-${label}`}
+                    checked={selectedLabels.includes(label)}
+                    onCheckedChange={() => handleLabelToggle(label)}
+                  />
+                  <label 
+                    htmlFor={`label-${label}`}
+                    className="text-xs cursor-pointer"
+                  >
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded border border-green-200">
+                      {label}
+                    </span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          {selectedLabels.length > 0 && (
+            <div className="mt-2 text-xs text-gray-600">
+              {selectedLabels.length} label{selectedLabels.length > 1 ? 's' : ''} selecionada{selectedLabels.length > 1 ? 's' : ''} • {filteredTickets.length} ticket{filteredTickets.length !== 1 ? 's' : ''} encontrado{filteredTickets.length !== 1 ? 's' : ''}
+            </div>
+          )}
+          {allLabels.length === 0 && (
+            <div className="text-xs text-gray-500 italic">
+              Nenhuma label {projectKey ? `${projectKey}` : 'do projeto'} encontrada nos tickets
             </div>
           )}
         </div>
@@ -201,17 +296,24 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
                   {/* Labels */}
                   {ticket.labels && ticket.labels.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {ticket.labels.slice(0, 3).map(label => (
-                        <span 
-                          key={label}
-                          className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded"
-                        >
-                          {label}
-                        </span>
-                      ))}
-                      {ticket.labels.length > 3 && (
+                      {ticket.labels.slice(0, 5).map(label => {
+                        const isSelected = selectedLabels.includes(label);
+                        return (
+                          <span 
+                            key={label}
+                            className={`text-xs px-2 py-0.5 rounded border ${
+                              isSelected 
+                                ? 'bg-blue-100 text-blue-800 border-blue-300 font-medium' 
+                                : 'bg-gray-100 text-gray-700 border-gray-200'
+                            }`}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })}
+                      {ticket.labels.length > 5 && (
                         <span className="text-xs text-gray-500">
-                          +{ticket.labels.length - 3} mais
+                          +{ticket.labels.length - 5} mais
                         </span>
                       )}
                     </div>
