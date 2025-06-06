@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -9,20 +8,35 @@ interface PerformanceChartProps {
   data: JiraIssue[];
 }
 
+interface IssueTypePerformance {
+  issueType: string;
+  totalIssues: number;
+  totalCycleTime: number;
+  completed: number;
+  avgCycleTime: number;
+  completionRate: number;
+}
+
+interface StatusDistribution {
+  status: string;
+  count: number;
+  percentage: number;
+}
+
 const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
   // Cores para os gráficos
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
-  // Processar dados para performance por categoria
-  const processPerformanceByCategory = () => {
+  // Processar dados para performance por tipo de issue
+  const processPerformanceByIssueType = (): IssueTypePerformance[] => {
     if (!data || data.length === 0) return [];
 
-    const categoryData = data.reduce((acc: any, item: any) => {
-      const category = item.category || 'Sem Categoria';
+    const issueTypeData = data.reduce((acc: Record<string, IssueTypePerformance>, item: JiraIssue) => {
+      const issueType = item.issueType || 'Sem Tipo';
       
-      if (!acc[category]) {
-        acc[category] = {
-          category,
+      if (!acc[issueType]) {
+        acc[issueType] = {
+          issueType,
           totalIssues: 0,
           totalCycleTime: 0,
           completed: 0,
@@ -31,17 +45,17 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
         };
       }
       
-      acc[category].totalIssues += 1;
-      acc[category].totalCycleTime += item.cycleTime || 0;
+      acc[issueType].totalIssues += 1;
+      acc[issueType].totalCycleTime += item.cycleTime || 0;
       
       if (item.status === 'Done' || item.status === 'Closed') {
-        acc[category].completed += 1;
+        acc[issueType].completed += 1;
       }
       
       return acc;
     }, {});
 
-    return Object.values(categoryData).map((item: any) => ({
+    return Object.values(issueTypeData).map((item: IssueTypePerformance) => ({
       ...item,
       avgCycleTime: item.totalIssues > 0 ? Math.round(item.totalCycleTime / item.totalIssues) : 0,
       completionRate: item.totalIssues > 0 ? Math.round((item.completed / item.totalIssues) * 100) : 0
@@ -49,10 +63,10 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
   };
 
   // Processar dados para distribuição por status
-  const processStatusDistribution = () => {
+  const processStatusDistribution = (): StatusDistribution[] => {
     if (!data || data.length === 0) return [];
 
-    const statusData = data.reduce((acc: any, item: any) => {
+    const statusData = data.reduce((acc: Record<string, number>, item: JiraIssue) => {
       const status = item.status || 'Sem Status';
       acc[status] = (acc[status] || 0) + 1;
       return acc;
@@ -61,11 +75,11 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
     return Object.entries(statusData).map(([status, count]) => ({
       status,
       count,
-      percentage: Math.round(((count as number) / data.length) * 100)
+      percentage: Math.round((count / data.length) * 100)
     }));
   };
 
-  const performanceData = processPerformanceByCategory();
+  const performanceData = processPerformanceByIssueType();
   const statusData = processStatusDistribution();
 
   return (
@@ -79,14 +93,14 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
       <CardContent>
         {data && data.length > 0 ? (
           <div className="space-y-8">
-            {/* Performance por Categoria */}
+            {/* Performance por Tipo de Issue */}
             <div>
-              <h4 className="text-sm font-medium mb-3">Cycle Time Médio por Categoria</h4>
+              <h4 className="text-sm font-medium mb-3">Cycle Time Médio por Tipo de Issue</h4>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={performanceData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
-                    dataKey="category" 
+                    dataKey="issueType" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
                     angle={-45}
@@ -100,7 +114,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
                   />
                   <Tooltip 
                     formatter={(value) => [`${value} dias`, 'Cycle Time Médio']}
-                    labelFormatter={(label) => `Categoria: ${label}`}
+                    labelFormatter={(label) => `Tipo: ${label}`}
                     contentStyle={{
                       backgroundColor: 'white',
                       border: '1px solid #e2e8f0',
@@ -153,13 +167,13 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
                 <h4 className="text-sm font-medium mb-3">Resumo de Performance</h4>
                 <div className="space-y-3">
                   {performanceData.slice(0, 5).map((item, index) => (
-                    <div key={item.category} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div key={item.issueType} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                       <div className="flex items-center gap-2">
                         <div 
                           className="w-3 h-3 rounded-full" 
                           style={{ backgroundColor: COLORS[index % COLORS.length] }}
                         />
-                        <span className="text-sm font-medium">{item.category}</span>
+                        <span className="text-sm font-medium">{item.issueType}</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium">{item.avgCycleTime} dias</div>

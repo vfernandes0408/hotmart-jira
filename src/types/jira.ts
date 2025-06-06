@@ -39,6 +39,13 @@ export interface JiraApiIssue {
     project?: { key: string; name?: string };
     customfield_10016?: number;
     customfield_10004?: number;
+    customfield_10002?: number;
+    customfield_10020?: number;
+    customfield_10011?: number;
+    customfield_10028?: number;
+    customfield_10024?: number;
     customfield_10000?: string;
+    storypoints?: number;
+    story_points?: number;
   };
 } 

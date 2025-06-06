@@ -19,7 +19,7 @@ NC = \033[0m # No Color
 
 ## Exibe esta mensagem de ajuda
 help:
-	@echo "$(BLUE)Jira Analytics Dashboard - Comandos Docker$(NC)"
+	@echo "$(BLUE)Hotmart Jira Analytics Dashboard - Comandos Docker$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Comandos disponíveis:$(NC)"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST)

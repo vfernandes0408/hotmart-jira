@@ -11,23 +11,12 @@ interface CycleTimeScatterplotProps {
 }
 
 const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [xAxisMode, setXAxisMode] = useState<'storyPoints' | 'sequence'>('storyPoints');
-  
-  // Cores para diferentes categorias
-  const categoryColors = {
-    'Frontend': '#3B82F6',
-    'Backend': '#10B981', 
-    'DevOps': '#F59E0B',
-    'Design': '#8B5CF6',
-    'QA': '#EF4444',
-    'all': '#6B7280'
-  };
 
   // Filtrar e preparar dados para o gráfico
   const chartData = useMemo(() => {
     // Filtrar dados válidos primeiro
-    let filteredData = data.filter(item => {
+    const filteredData = data.filter(item => {
       // Verificar se é um objeto válido do Jira
       if (!item || typeof item !== 'object') return false;
       if (!item.id || typeof item.id !== 'string') return false;
@@ -39,12 +28,6 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
       
       return true;
     });
-    
-    if (selectedCategory !== 'all') {
-      filteredData = filteredData.filter(item => 
-        item.category && item.category === selectedCategory
-      );
-    }
     
     // Ordenar por data de criação para ter sequência temporal
     filteredData.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
@@ -70,7 +53,6 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
         storyPoints: storyPoints, // Story points original para tooltip
         cycleTime: cycleTime, // Cycle time original para tooltip
         sequenceIndex: index + 1, // Índice sequencial
-        category: String(item.category || 'Sem Categoria'),
         issueType: String(item.issueType || 'Unknown'),
         id: String(item.id),
         summary: String(item.summary || 'Sem título'),
@@ -78,7 +60,7 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
         resolved: item.resolved
       };
     });
-  }, [data, selectedCategory, xAxisMode]);
+  }, [data, xAxisMode]);
 
   // Calcular estatísticas
   const statistics = useMemo(() => {
@@ -93,12 +75,6 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
     return { avg: avg.toFixed(1), median, p85 };
   }, [chartData]);
 
-  // Obter categorias únicas
-  const categories = useMemo(() => {
-    const unique = [...new Set(data.map(item => item.category))];
-    return ['all', ...unique];
-  }, [data]);
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
     if (active && payload && payload.length) {
@@ -110,7 +86,6 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
           <div className="space-y-1 text-sm">
             <p><span className="font-medium">Story Points:</span> {data.storyPoints}</p>
             <p><span className="font-medium">Cycle Time:</span> {data.cycleTime} dias</p>
-            <p><span className="font-medium">Categoria:</span> {data.category}</p>
             <p><span className="font-medium">Tipo:</span> {data.issueType}</p>
             <p><span className="font-medium">Sequência:</span> #{data.sequenceIndex}</p>
             <p><span className="font-medium">Criado:</span> {new Date(data.created).toLocaleDateString('pt-BR')}</p>
@@ -137,24 +112,7 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
         </div>
         
         {/* Controles */}
-        <div className="space-y-3 mt-4">
-          {/* Filtros de categoria */}
-          <div className="flex flex-wrap gap-2">
-            {categories.map(category => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
-                  selectedCategory === category
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {category === 'all' ? 'Todas' : category}
-              </button>
-            ))}
-          </div>
-
+        <div className="mt-4">
           {/* Seletor do eixo X */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-600">Eixo X:</span>
@@ -225,25 +183,11 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
                 domain={[0, 'dataMax + 1']}
               />
               <Tooltip content={<CustomTooltip />} />
-              
-              {selectedCategory === 'all' ? (
-                // Mostrar todas as categorias com cores diferentes
-                categories.slice(1).map(category => (
-                  <Scatter
-                    key={category}
-                    name={category}
-                    data={chartData.filter(item => item.category === category)}
-                    fill={categoryColors[category as keyof typeof categoryColors]}
-                  />
-                ))
-              ) : (
-                // Mostrar apenas a categoria selecionada
-                <Scatter
-                  name={selectedCategory}
-                  data={chartData}
-                  fill={categoryColors[selectedCategory as keyof typeof categoryColors]}
-                />
-              )}
+              <Scatter
+                name="Issues"
+                data={chartData}
+                fill="#3B82F6"
+              />
             </ScatterChart>
           </ResponsiveContainer>
         </div>

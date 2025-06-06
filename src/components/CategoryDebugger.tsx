@@ -17,7 +17,7 @@ const CategoryDebugger: React.FC<CategoryDebuggerProps> = ({ data }) => {
     const samples = new Map<string, string[]>();
     
     data.forEach(item => {
-      const category = item.category;
+      const category = item.issueType || 'Sem Tipo';
       const count = categoryMap.get(category) || 0;
       categoryMap.set(category, count + 1);
       
@@ -79,12 +79,7 @@ const CategoryDebugger: React.FC<CategoryDebuggerProps> = ({ data }) => {
         <div className="space-y-4">
           <div className="text-sm text-orange-700 bg-orange-100 p-3 rounded-lg">
             <strong>Como as categorias são determinadas:</strong>
-            <ol className="list-decimal list-inside mt-2 space-y-1">
-              <li><strong>Componentes</strong>: Usa o primeiro componente do issue</li>
-              <li><strong>Epic Name</strong>: Usa o campo customfield_10000</li>
-              <li><strong>Issue Type</strong>: Usa o tipo do issue como "Tipo: Story"</li>
-              <li><strong>Project Key</strong>: Usa a chave do projeto como "Projeto: SCH"</li>
-            </ol>
+            <p className="mt-2">Atualmente usando <strong>Issue Type</strong> como categoria (Story, Bug, Task, etc.)</p>
           </div>
 
           <div className="grid gap-3">

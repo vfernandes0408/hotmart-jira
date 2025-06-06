@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Key, Server, User, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Key, Server, User, CheckCircle2, Brain } from 'lucide-react';
 import { toast } from 'sonner';
 import { JiraIssue, JiraApiIssue } from '@/types/jira';
 
@@ -19,7 +19,8 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     serverUrl: '',
     email: '',
     apiToken: '',
-    projectKey: ''
+    projectKey: '',
+    openaiApiKey: ''
   });
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -85,39 +86,47 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     const cycleTime = calculateCycleTime(created, resolved);
     const leadTime = calculateCycleTime(created, resolved);
     
-    // Validar story points
-    const storyPointsRaw = jiraIssue.fields.customfield_10016 || jiraIssue.fields.customfield_10004 || 0;
+    // Validar story points - buscar em todos os custom fields possíveis
+    let storyPointsRaw = 0;
+    const fieldsToCheck = jiraIssue.fields as Record<string, unknown>;
+    
+    // Lista de campos conhecidos para story points (ordem de prioridade)
+    const knownStoryPointFields = [
+      'customfield_10016', 'customfield_10004', 'customfield_10002', 'customfield_10020',
+      'customfield_10011', 'customfield_10028', 'customfield_10024', 'customfield_10005',
+      'customfield_10001', 'customfield_10003', 'storypoints', 'story_points'
+    ];
+    
+    // Primeiro tentar campos conhecidos
+    for (const field of knownStoryPointFields) {
+      if (fieldsToCheck[field] && typeof fieldsToCheck[field] === 'number' && fieldsToCheck[field] as number > 0) {
+        storyPointsRaw = fieldsToCheck[field] as number;
+        break;
+      }
+    }
+    
+    // Se não encontrou, procurar em todos os custom fields numéricos
+    if (!storyPointsRaw) {
+      for (const [key, value] of Object.entries(fieldsToCheck)) {
+        if (key.startsWith('customfield_') && typeof value === 'number' && value > 0 && value <= 100) {
+          // Assumir que story points normalmente são entre 1-100
+          storyPointsRaw = value;
+          break;
+        }
+      }
+    }
+    
     const storyPoints = Number(storyPointsRaw) || 0;
     
-    // Determinar categoria com mais opções e debugging
-    let category = 'Sem Categoria';
     
-    // Primeira opção: Componentes do Jira (mais comum)
-    if (jiraIssue.fields.components && jiraIssue.fields.components.length > 0) {
-      category = jiraIssue.fields.components[0].name;
-    }
-    // Segunda opção: Epic Name (customfield_10000)
-    else if (jiraIssue.fields.customfield_10000) {
-      category = jiraIssue.fields.customfield_10000;
-    }
-    // Terceira opção: Usar Issue Type como categoria
-    else if (jiraIssue.fields.issuetype?.name) {
-      category = `Tipo: ${jiraIssue.fields.issuetype.name}`;
-    }
-    // Quarta opção: Usar Project key como categoria
-    else if (jiraIssue.fields.project?.key) {
-      category = `Projeto: ${jiraIssue.fields.project.key}`;
-    }
+    
 
-    // Log para debug (remover em produção)
-    console.log(`Issue ${jiraIssue.key} - Categoria: "${category}" | Components:`, jiraIssue.fields.components, '| CustomField:', jiraIssue.fields.customfield_10000);
 
     return {
       id: String(jiraIssue.key),
       summary: String(jiraIssue.fields.summary || 'Sem título'),
       issueType: String(jiraIssue.fields.issuetype?.name || 'Unknown'),
       status: String(jiraIssue.fields.status?.name || 'Unknown'),
-      category: String(category),
       labels: Array.isArray(jiraIssue.fields.labels) ? jiraIssue.fields.labels : [],
       cycleTime: Math.max(0, Number(cycleTime) || 0),
       leadTime: Math.max(0, Number(leadTime) || 0),
@@ -150,7 +159,7 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
           jql: jql,
           maxResults: maxResults.toString(),
           startAt: startAt.toString(),
-          fields: 'key,summary,issuetype,status,assignee,created,resolutiondate,labels,components,project,customfield_10016,customfield_10004,customfield_10000'
+          fields: '*all'  // Buscar TODOS os campos para identificar o correto
         });
 
         const response = await fetch(`${url}?${params}`, {
@@ -199,6 +208,8 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
         throw new Error('Nenhum issue encontrado no projeto especificado.');
       }
 
+
+
       return allIssues;
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -232,121 +243,176 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Card className="w-full max-w-2xl border-0 shadow-2xl bg-white/80 backdrop-blur-sm">
-        <CardHeader className="text-center pb-6">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4">
-            <Server className="w-8 h-8 text-white" />
+    <div className="h-full flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl">
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full border shadow-sm mb-3">
+            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+            <span className="text-sm font-medium text-gray-700">Hotmart Analytics Dashboard</span>
           </div>
-          <CardTitle className="text-2xl font-bold">Conectar ao Jira</CardTitle>
-          <p className="text-muted-foreground">
-            Configure sua conexão com a API do Jira para começar a analisar seus dados
+          
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Conectar ao Jira
+          </h1>
+          
+          <p className="text-gray-600 max-w-xl mx-auto">
+            Configure sua conexão e transforme dados em insights
           </p>
-        </CardHeader>
-        
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="serverUrl" className="flex items-center gap-2">
-                <Server className="w-4 h-4" />
-                URL do Servidor Jira *
-              </Label>
-              <Input
-                id="serverUrl"
-                placeholder="https://yourcompany.atlassian.net"
-                value={credentials.serverUrl}
-                onChange={(e) => handleInputChange('serverUrl', e.target.value)}
-                className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto">
+          <Card className="shadow-lg border-0 bg-white">
+            <CardHeader className="text-center pb-4 bg-gray-50 rounded-t-lg">
+              <div className="mx-auto w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center mb-3">
+                <Server className="w-6 h-6 text-white" />
+              </div>
+              <CardTitle className="text-xl font-bold text-gray-900">Configuração de Conexão</CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Preencha os dados abaixo para conectar
+              </p>
+            </CardHeader>
             
-            <div className="space-y-2">
-              <Label htmlFor="projectKey" className="flex items-center gap-2">
-                <Key className="w-4 h-4" />
-                Chave do Projeto
-              </Label>
-              <Input
-                id="projectKey"
-                placeholder="PROJ"
-                value={credentials.projectKey}
-                onChange={(e) => handleInputChange('projectKey', e.target.value)}
-                className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Email *
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu.email@empresa.com"
-                value={credentials.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="apiToken" className="flex items-center gap-2">
-                <Key className="w-4 h-4" />
-                API Token *
-              </Label>
-              <Input
-                id="apiToken"
-                type="password"
-                placeholder="Seu token de API"
-                value={credentials.apiToken}
-                onChange={(e) => handleInputChange('apiToken', e.target.value)}
-                className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-blue-900 mb-1">Como obter seu API Token:</p>
-                <ol className="text-blue-700 space-y-1 list-decimal list-inside">
-                  <li>Acesse as configurações da sua conta Atlassian</li>
-                  <li>Vá para "Security" → "Create and manage API tokens"</li>
-                  <li>Clique em "Create API token" e dê um nome descritivo</li>
-                  <li>Copie o token gerado e cole no campo acima</li>
-                </ol>
+            <CardContent className="p-5 space-y-4">
+              {/* Server URL */}
+              <div className="space-y-3">
+                <Label htmlFor="serverUrl" className="flex items-center gap-3 font-medium text-gray-800">
+                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <Server className="w-5 h-5 text-orange-600" />
+                  </div>
+                  URL do Servidor Jira *
+                </Label>
+                <Input
+                  id="serverUrl"
+                  placeholder="https://yourcompany.atlassian.net"
+                  value={credentials.serverUrl}
+                  onChange={(e) => handleInputChange('serverUrl', e.target.value)}
+                  className="h-12 border-gray-200 bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                />
               </div>
-            </div>
-          </div>
-          
-          <Button 
-            onClick={handleConnect}
-            disabled={isConnecting}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 h-12"
-          >
-            {isConnecting ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Conectando...
+              
+              {/* Email and Project Key */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label htmlFor="email" className="flex items-center gap-3 font-medium text-gray-800">
+                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <User className="w-5 h-5 text-gray-600" />
+                    </div>
+                    Email *
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu.email@empresa.com"
+                    value={credentials.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className="h-12 border-gray-200 bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                  />
+                </div>
+                
+                <div className="space-y-3">
+                  <Label htmlFor="projectKey" className="flex items-center gap-3 font-medium text-gray-800">
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <Key className="w-5 h-5 text-orange-600" />
+                    </div>
+                    Projeto
+                  </Label>
+                  <Input
+                    id="projectKey"
+                    placeholder="SCH, PROJ..."
+                    value={credentials.projectKey}
+                    onChange={(e) => handleInputChange('projectKey', e.target.value)}
+                    className="h-12 border-gray-200 bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                  />
+                </div>
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5" />
-                Conectar ao Jira
+
+              {/* API Token */}
+              <div className="space-y-3">
+                <Label htmlFor="apiToken" className="flex items-center gap-3 font-medium text-gray-800">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Key className="w-5 h-5 text-gray-600" />
+                  </div>
+                  API Token *
+                </Label>
+                <Input
+                  id="apiToken"
+                  type="password"
+                  placeholder="Seu token de API do Jira"
+                  value={credentials.apiToken}
+                  onChange={(e) => handleInputChange('apiToken', e.target.value)}
+                  className="h-12 border-gray-200 bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                />
               </div>
-            )}
-          </Button>
-          
-          <div className="text-center text-sm text-muted-foreground">
-            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-              ⚡ Conectando diretamente à API do Jira
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+
+              {/* OpenAI API Key */}
+              <div className="space-y-3">
+                <Label htmlFor="openaiApiKey" className="flex items-center gap-3 font-medium text-gray-800">
+                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <Brain className="w-5 h-5 text-orange-600" />
+                  </div>
+                  OpenAI API Key (opcional)
+                </Label>
+                <Input
+                  id="openaiApiKey"
+                  type="password"
+                  placeholder="sk-... (para insights com IA)"
+                  value={credentials.openaiApiKey}
+                  onChange={(e) => handleInputChange('openaiApiKey', e.target.value)}
+                  className="h-12 border-gray-200 bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                />
+              </div>
+              
+              {/* Help section */}
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-semibold text-gray-900 mb-3">💡 Como obter seu API Token:</p>
+                    <div className="text-gray-700 space-y-2">
+                      <p><strong>1.</strong> Acesse Atlassian Account Settings → Security</p>
+                      <p><strong>2.</strong> Clique em "Create API token" → Dê um nome</p>
+                      <p><strong>3.</strong> Copie o token e cole no campo acima</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Connect button */}
+              <Button 
+                onClick={handleConnect}
+                disabled={isConnecting || !credentials.serverUrl || !credentials.email || !credentials.apiToken}
+                className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-base"
+              >
+                {isConnecting ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Conectando ao Jira...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>Conectar e Analisar</span>
+                  </div>
+                )}
+              </Button>
+              
+              {/* Status badges */}
+              <div className="flex items-center justify-center gap-6 pt-4">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm font-medium">Conexão Segura</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-600">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                  <span className="text-sm font-medium">API Direta</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

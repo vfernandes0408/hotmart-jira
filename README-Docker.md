@@ -1,6 +1,6 @@
-# 🐳 Docker Setup - Jira Analytics Dashboard
+# 🐳 Docker Setup - Hotmart Jira Analytics Dashboard
 
-Este guia explica como usar Docker para executar a aplicação Jira Analytics Dashboard em ambientes de desenvolvimento e produção.
+Este guia explica como usar Docker para executar a aplicação Hotmart Jira Analytics Dashboard em ambientes de desenvolvimento e produção.
 
 ## 📋 Pré-requisitos
 
