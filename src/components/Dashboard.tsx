@@ -369,9 +369,12 @@ const Dashboard = () => {
     }
 
     if (newFilters.labels) {
+      const labels = Array.isArray(newFilters.labels)
+        ? newFilters.labels
+        : [newFilters.labels];
       filtered = filtered.filter((item: JiraIssue) => {
         if (!item.labels || !Array.isArray(item.labels)) return false;
-        return item.labels.includes(newFilters.labels);
+        return labels.some(label => item.labels.includes(label));
       });
     }
 
