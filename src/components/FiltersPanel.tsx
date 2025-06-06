@@ -54,6 +54,25 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
     onFiltersChange(newFilters);
   };
 
+  const handleAssigneeChange = (assignee: string, checked: boolean) => {
+    const currentAssignees = Array.isArray(filters.assignee) 
+      ? filters.assignee 
+      : filters.assignee ? [filters.assignee] : [];
+    
+    let newAssignees: string[];
+    if (checked) {
+      newAssignees = [...currentAssignees, assignee];
+    } else {
+      newAssignees = currentAssignees.filter(a => a !== assignee);
+    }
+    
+    const newFilters = {
+      ...filters,
+      assignee: newAssignees.length === 0 ? '' : newAssignees
+    };
+    onFiltersChange(newFilters);
+  };
+
 
 
   const handleDateRangeChange = (key: string, value: string) => {
@@ -79,7 +98,7 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
   };
 
   const activeFiltersCount = Object.entries(filters).filter(([key, value]) => {
-    if (key === 'issueType') {
+    if (key === 'issueType' || key === 'assignee') {
       return Array.isArray(value) ? value.length > 0 : !!value;
     }
     return value && (typeof value === 'string' ? value : Object.values(value).some(v => v));
@@ -186,19 +205,33 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
         </div>
 
         {/* Assignee */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Responsável</Label>
-          <Select value={filters.assignee || 'all'} onValueChange={(value) => handleFilterChange('assignee', value)}>
-            <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
-              <SelectValue placeholder="Selecionar responsável" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os responsáveis</SelectItem>
-              {uniqueAssignees.map(assignee => (
-                <SelectItem key={assignee} value={assignee}>{assignee}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="space-y-1.5 lg:space-y-2">
+          <Label className="text-xs lg:text-sm font-medium">Responsável</Label>
+          <div className="space-y-1.5 lg:space-y-2 max-h-32 lg:max-h-40 overflow-y-auto">
+            {uniqueAssignees.map(assignee => {
+              const currentAssignees = Array.isArray(filters.assignee) 
+                ? filters.assignee 
+                : filters.assignee ? [filters.assignee] : [];
+              const isChecked = currentAssignees.includes(assignee);
+              
+              return (
+                <div key={assignee} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`assignee-${assignee}`}
+                    checked={isChecked}
+                    onCheckedChange={(checked) => handleAssigneeChange(assignee, !!checked)}
+                    className="h-3 w-3 lg:h-4 lg:w-4"
+                  />
+                  <Label 
+                    htmlFor={`assignee-${assignee}`} 
+                    className="text-xs lg:text-sm cursor-pointer flex-1"
+                  >
+                    {assignee}
+                  </Label>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Período */}
