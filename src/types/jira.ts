@@ -3,7 +3,6 @@ export interface JiraIssue {
   summary: string;
   issueType: string;
   status: string;
-  category: string;
   labels: string[];
   cycleTime: number;
   leadTime: number;
@@ -19,7 +18,6 @@ export interface Filters {
   issueType: string;
   status: string;
   assignee: string;
-  category: string;
   labels: string;
   dateRange: {
     start: string;
@@ -38,7 +36,7 @@ export interface JiraApiIssue {
     resolutiondate?: string | null;
     labels?: string[];
     components?: Array<{ name: string }>;
-    project?: { key: string };
+    project?: { key: string; name?: string };
     customfield_10016?: number;
     customfield_10004?: number;
     customfield_10000?: string;

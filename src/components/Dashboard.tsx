@@ -13,6 +13,8 @@ import MetricsCards from './MetricsCards';
 import FiltersPanel from './FiltersPanel';
 import TrendChart from './TrendChart';
 import PerformanceChart from './PerformanceChart';
+import CategoryDebugger from './CategoryDebugger';
+import LabelComparison from './LabelComparison';
 import { JiraIssue, Filters } from '@/types/jira';
 
 const Dashboard = () => {
@@ -24,15 +26,48 @@ const Dashboard = () => {
     issueType: '',
     status: '',
     assignee: '',
-    category: '',
     labels: '',
     dateRange: { start: '', end: '' }
   });
 
+  // Clean up any potential external data interference
+  useEffect(() => {
+    // Clear any global variables that might interfere
+    if (typeof window !== 'undefined') {
+      // Remove any non-application related data from window object
+      const protectedKeys = ['React', 'ReactDOM', '__vite_plugin_react_preamble_installed__'];
+      Object.keys(window).forEach(key => {
+        if (!protectedKeys.includes(key) && key.includes('pullrequest')) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (window as any)[key];
+          } catch (e) {
+            // Ignore errors when trying to delete protected properties
+          }
+        }
+      });
+    }
+  }, []);
+
   const handleJiraConnect = (data: JiraIssue[]) => {
+    // Limpar e validar dados antes de usar
+    const cleanData = data.filter(item => {
+      // Verificar se é um objeto válido do Jira
+      if (!item || typeof item !== 'object') return false;
+      if (!item.id || typeof item.id !== 'string') return false;
+      
+      // Verificar se não contém dados de pull request ou externos
+      const itemStr = JSON.stringify(item);
+      if (itemStr.includes('pullrequest') || itemStr.includes('dataType')) return false;
+      
+      return true;
+    });
+    
+    console.log(`Dados limpos: ${cleanData.length} de ${data.length} issues válidos`);
+    
     setIsConnected(true);
-    setJiraData(data);
-    setFilteredData(data);
+    setJiraData(cleanData);
+    setFilteredData(cleanData);
   };
 
   const handleFiltersChange = (newFilters: Filters) => {
@@ -55,10 +90,6 @@ const Dashboard = () => {
     
     if (newFilters.assignee) {
       filtered = filtered.filter((item: JiraIssue) => item.assignee === newFilters.assignee);
-    }
-    
-    if (newFilters.category) {
-      filtered = filtered.filter((item: JiraIssue) => item.category === newFilters.category);
     }
     
     if (newFilters.labels) {
@@ -117,6 +148,9 @@ const Dashboard = () => {
           <JiraConnector onConnect={handleJiraConnect} />
         ) : (
           <div className="space-y-6">
+            {/* Debug de Categorias */}
+            <CategoryDebugger data={jiraData} />
+            
             {/* Metrics Cards */}
             <MetricsCards data={filteredData} />
             
@@ -134,10 +168,10 @@ const Dashboard = () => {
               {/* Charts Area */}
               <div className="lg:col-span-3">
                 <Tabs defaultValue="scatterplot" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 mb-6">
+                  <TabsList className="grid w-full grid-cols-4 mb-6">
                     <TabsTrigger value="scatterplot" className="flex items-center gap-2">
                       <BarChart3 className="w-4 h-4" />
-                      Cycle Time Scatterplot
+                      Cycle Time
                     </TabsTrigger>
                     <TabsTrigger value="trends" className="flex items-center gap-2">
                       <TrendingUp className="w-4 h-4" />
@@ -146,6 +180,10 @@ const Dashboard = () => {
                     <TabsTrigger value="performance" className="flex items-center gap-2">
                       <Target className="w-4 h-4" />
                       Performance
+                    </TabsTrigger>
+                    <TabsTrigger value="comparison" className="flex items-center gap-2">
+                      <Activity className="w-4 h-4" />
+                      Comparação IA
                     </TabsTrigger>
                   </TabsList>
                   
@@ -159,6 +197,10 @@ const Dashboard = () => {
                   
                   <TabsContent value="performance" className="space-y-4">
                     <PerformanceChart data={filteredData} />
+                  </TabsContent>
+                  
+                  <TabsContent value="comparison" className="space-y-4">
+                    <LabelComparison data={filteredData} />
                   </TabsContent>
                 </Tabs>
               </div>

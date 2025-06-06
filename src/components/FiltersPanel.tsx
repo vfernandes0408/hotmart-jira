@@ -21,7 +21,7 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
   const uniqueIssueTypes = [...new Set(data.map(item => item.issueType))];
   const uniqueStatuses = [...new Set(data.map(item => item.status))];
   const uniqueAssignees = [...new Set(data.map(item => item.assignee))];
-  const uniqueCategories = [...new Set(data.map(item => item.category))];
+
   
   // Extrair labels únicos dos dados
   const uniqueLabels = [...new Set(data.flatMap(item => item.labels || []))];
@@ -51,7 +51,6 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
       issueType: '',
       status: '',
       assignee: '',
-      category: '',
       labels: '',
       dateRange: { start: '', end: '' }
     });
@@ -110,21 +109,7 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
           </Select>
         </div>
 
-        {/* Categoria */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Categoria</Label>
-          <Select value={filters.category || 'all'} onValueChange={(value) => handleFilterChange('category', value)}>
-            <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
-              <SelectValue placeholder="Selecionar categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as categorias</SelectItem>
-              {uniqueCategories.map(category => (
-                <SelectItem key={category} value={category}>{category}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+
 
         {/* Labels */}
         <div className="space-y-2">

@@ -29,11 +29,16 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
       const savedCredentials = localStorage.getItem(STORAGE_KEY);
       if (savedCredentials) {
         const parsed = JSON.parse(savedCredentials);
-        setCredentials(parsed);
-        toast.success('Credenciais carregadas do armazenamento local');
+        // Validate that we have valid credentials structure
+        if (parsed && typeof parsed === 'object' && parsed.serverUrl) {
+          setCredentials(parsed);
+          toast.success('Credenciais carregadas do armazenamento local');
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar credenciais do localStorage:', error);
+      // Clear corrupted data
+      localStorage.removeItem(STORAGE_KEY);
     }
   }, []);
 
@@ -66,24 +71,61 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     return diffDays;
   };
 
-  const mapJiraIssueToLocal = (jiraIssue: JiraApiIssue): JiraIssue => {
+  const mapJiraIssueToLocal = (jiraIssue: JiraApiIssue): JiraIssue | null => {
+    // Validar se o objeto é válido
+    if (!jiraIssue || !jiraIssue.key || !jiraIssue.fields) {
+      console.warn('Invalid Jira issue object:', jiraIssue);
+      return null;
+    }
+
     const created = jiraIssue.fields.created;
     const resolved = jiraIssue.fields.resolutiondate;
     
+    // Calcular cycle time e garantir que é um número válido
+    const cycleTime = calculateCycleTime(created, resolved);
+    const leadTime = calculateCycleTime(created, resolved);
+    
+    // Validar story points
+    const storyPointsRaw = jiraIssue.fields.customfield_10016 || jiraIssue.fields.customfield_10004 || 0;
+    const storyPoints = Number(storyPointsRaw) || 0;
+    
+    // Determinar categoria com mais opções e debugging
+    let category = 'Sem Categoria';
+    
+    // Primeira opção: Componentes do Jira (mais comum)
+    if (jiraIssue.fields.components && jiraIssue.fields.components.length > 0) {
+      category = jiraIssue.fields.components[0].name;
+    }
+    // Segunda opção: Epic Name (customfield_10000)
+    else if (jiraIssue.fields.customfield_10000) {
+      category = jiraIssue.fields.customfield_10000;
+    }
+    // Terceira opção: Usar Issue Type como categoria
+    else if (jiraIssue.fields.issuetype?.name) {
+      category = `Tipo: ${jiraIssue.fields.issuetype.name}`;
+    }
+    // Quarta opção: Usar Project key como categoria
+    else if (jiraIssue.fields.project?.key) {
+      category = `Projeto: ${jiraIssue.fields.project.key}`;
+    }
+
+    // Log para debug (remover em produção)
+    console.log(`Issue ${jiraIssue.key} - Categoria: "${category}" | Components:`, jiraIssue.fields.components, '| CustomField:', jiraIssue.fields.customfield_10000);
+
     return {
-      id: jiraIssue.key,
-      summary: jiraIssue.fields.summary || 'Sem título',
-      issueType: jiraIssue.fields.issuetype?.name || 'Unknown',
-      status: jiraIssue.fields.status?.name || 'Unknown',
-      category: jiraIssue.fields.components?.[0]?.name || jiraIssue.fields.customfield_10000 || 'Sem Categoria',
-      labels: jiraIssue.fields.labels || [],
-      cycleTime: calculateCycleTime(created, resolved),
-      leadTime: calculateCycleTime(created, resolved), // Pode ser refinado com outros campos
-      storyPoints: jiraIssue.fields.customfield_10016 || jiraIssue.fields.customfield_10004 || 0,
-      created: created,
-      resolved: resolved,
-      assignee: jiraIssue.fields.assignee?.displayName || 'Não atribuído',
-      project: jiraIssue.fields.project?.key || credentials.projectKey || 'UNKNOWN'
+      id: String(jiraIssue.key),
+      summary: String(jiraIssue.fields.summary || 'Sem título'),
+      issueType: String(jiraIssue.fields.issuetype?.name || 'Unknown'),
+      status: String(jiraIssue.fields.status?.name || 'Unknown'),
+      category: String(category),
+      labels: Array.isArray(jiraIssue.fields.labels) ? jiraIssue.fields.labels : [],
+      cycleTime: Math.max(0, Number(cycleTime) || 0),
+      leadTime: Math.max(0, Number(leadTime) || 0),
+      storyPoints: Math.max(0, storyPoints),
+      created: String(created),
+      resolved: resolved ? String(resolved) : null,
+      assignee: String(jiraIssue.fields.assignee?.displayName || 'Não atribuído'),
+      project: String(jiraIssue.fields.project?.key || credentials.projectKey || 'UNKNOWN')
     };
   };
 
@@ -135,7 +177,9 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
         const data = await response.json();
         
         if (data.issues && data.issues.length > 0) {
-          const mappedIssues = data.issues.map(mapJiraIssueToLocal);
+          const mappedIssues = data.issues
+            .map(mapJiraIssueToLocal)
+            .filter((issue): issue is JiraIssue => issue !== null);
           allIssues = [...allIssues, ...mappedIssues];
           
           // Verificar se há mais resultados
