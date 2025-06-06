@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8888,
+    allowedHosts: [
+      "hotmart-hotmartjira-dm4rdw-c006a0-69-62-89-150.traefik.me"
+    ],
   },
   plugins: [
     react(),
