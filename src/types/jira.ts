@@ -15,7 +15,7 @@ export interface JiraIssue {
 
 export interface Filters {
   project: string;
-  issueType: string;
+  issueType: string | string[];
   status: string;
   assignee: string;
   labels: string;

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Calendar, Filter, RotateCcw, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { JiraIssue, Filters } from '@/types/jira';
 
 interface FiltersPanelProps {
@@ -34,6 +35,25 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
     onFiltersChange(newFilters);
   };
 
+  const handleIssueTypeChange = (type: string, checked: boolean) => {
+    const currentTypes = Array.isArray(filters.issueType) 
+      ? filters.issueType 
+      : filters.issueType ? [filters.issueType] : [];
+    
+    let newTypes: string[];
+    if (checked) {
+      newTypes = [...currentTypes, type];
+    } else {
+      newTypes = currentTypes.filter(t => t !== type);
+    }
+    
+    const newFilters = {
+      ...filters,
+      issueType: newTypes.length === 0 ? '' : newTypes
+    };
+    onFiltersChange(newFilters);
+  };
+
   const handleDateRangeChange = (key: string, value: string) => {
     const newFilters = {
       ...filters,
@@ -56,9 +76,12 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
     });
   };
 
-  const activeFiltersCount = Object.values(filters).filter(value => 
-    value && (typeof value === 'string' ? value : Object.values(value).some(v => v))
-  ).length;
+  const activeFiltersCount = Object.entries(filters).filter(([key, value]) => {
+    if (key === 'issueType') {
+      return Array.isArray(value) ? value.length > 0 : !!value;
+    }
+    return value && (typeof value === 'string' ? value : Object.values(value).some(v => v));
+  }).length;
 
   return (
     <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm sticky top-6">
@@ -96,17 +119,30 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
         {/* Tipo de Issue */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">Tipo de Issue</Label>
-          <Select value={filters.issueType || 'all'} onValueChange={(value) => handleFilterChange('issueType', value)}>
-            <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
-              <SelectValue placeholder="Selecionar tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
-              {uniqueIssueTypes.map(type => (
-                <SelectItem key={type} value={type}>{type}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {uniqueIssueTypes.map(type => {
+              const currentTypes = Array.isArray(filters.issueType) 
+                ? filters.issueType 
+                : filters.issueType ? [filters.issueType] : [];
+              const isChecked = currentTypes.includes(type);
+              
+              return (
+                <div key={type} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`issue-type-${type}`}
+                    checked={isChecked}
+                    onCheckedChange={(checked) => handleIssueTypeChange(type, !!checked)}
+                  />
+                  <Label 
+                    htmlFor={`issue-type-${type}`} 
+                    className="text-sm cursor-pointer flex-1"
+                  >
+                    {type}
+                  </Label>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
 

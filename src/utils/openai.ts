@@ -13,6 +13,27 @@ export function getOpenAIApiKey(): string | null {
   return null;
 }
 
+export function setOpenAIApiKey(apiKey: string): void {
+  try {
+    const credentials = localStorage.getItem('jira_credentials');
+    let parsedCredentials = {};
+    
+    if (credentials) {
+      parsedCredentials = JSON.parse(credentials);
+    }
+    
+    const updatedCredentials = {
+      ...parsedCredentials,
+      openaiApiKey: apiKey
+    };
+    
+    localStorage.setItem('jira_credentials', JSON.stringify(updatedCredentials));
+  } catch (error) {
+    console.error('Erro ao salvar chave da API OpenAI:', error);
+    throw error;
+  }
+}
+
 export async function callOpenAIApi(prompt: string): Promise<string> {
   const apiKey = getOpenAIApiKey();
   
