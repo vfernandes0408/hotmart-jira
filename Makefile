@@ -29,25 +29,25 @@ build:
 	@echo "$(BLUE)Construindo imagens Docker...$(NC)"
 	$(DOCKER_COMPOSE) build --no-cache
 
-## Inicia o ambiente de desenvolvimento
+## Inicia a aplicação
 dev:
-	@echo "$(GREEN)Iniciando ambiente de desenvolvimento...$(NC)"
-	$(DOCKER_COMPOSE) up app-dev
+	@echo "$(GREEN)Iniciando aplicação...$(NC)"
+	$(DOCKER_COMPOSE) up app
 
-## Inicia o ambiente de desenvolvimento em background
+## Inicia a aplicação em background
 dev-d:
-	@echo "$(GREEN)Iniciando ambiente de desenvolvimento em background...$(NC)"
-	$(DOCKER_COMPOSE) up -d app-dev
+	@echo "$(GREEN)Iniciando aplicação em background...$(NC)"
+	$(DOCKER_COMPOSE) up -d app
 
-## Inicia o ambiente de produção
-prod:
-	@echo "$(GREEN)Iniciando ambiente de produção...$(NC)"
-	$(DOCKER_COMPOSE) up app-prod
+## Alias para dev (compatibilidade)
+start:
+	@echo "$(GREEN)Iniciando aplicação...$(NC)"
+	$(DOCKER_COMPOSE) up app
 
-## Inicia o ambiente de produção em background
-prod-d:
-	@echo "$(GREEN)Iniciando ambiente de produção em background...$(NC)"
-	$(DOCKER_COMPOSE) up -d app-prod
+## Alias para dev-d (compatibilidade)
+start-d:
+	@echo "$(GREEN)Iniciando aplicação em background...$(NC)"
+	$(DOCKER_COMPOSE) up -d app
 
 ## Para todos os containers
 stop:
@@ -70,40 +70,30 @@ logs:
 	@echo "$(BLUE)Exibindo logs...$(NC)"
 	$(DOCKER_COMPOSE) logs -f
 
-## Exibe logs do ambiente de desenvolvimento
-logs-dev:
-	@echo "$(BLUE)Exibindo logs do desenvolvimento...$(NC)"
-	$(DOCKER_COMPOSE) logs -f app-dev
+## Exibe logs da aplicação
+logs-app:
+	@echo "$(BLUE)Exibindo logs da aplicação...$(NC)"
+	$(DOCKER_COMPOSE) logs -f app
 
-## Exibe logs do ambiente de produção
-logs-prod:
-	@echo "$(BLUE)Exibindo logs da produção...$(NC)"
-	$(DOCKER_COMPOSE) logs -f app-prod
+## Acessa o shell do container
+shell:
+	@echo "$(BLUE)Acessando shell do container...$(NC)"
+	$(DOCKER_COMPOSE) exec app sh
 
-## Acessa o shell do container de desenvolvimento
-shell-dev:
-	@echo "$(BLUE)Acessando shell do container de desenvolvimento...$(NC)"
-	$(DOCKER_COMPOSE) exec app-dev sh
-
-## Acessa o shell do container de produção
-shell-prod:
-	@echo "$(BLUE)Acessando shell do container de produção...$(NC)"
-	$(DOCKER_COMPOSE) exec app-prod sh
-
-## Instala dependências no container de desenvolvimento
+## Instala dependências no container
 install:
 	@echo "$(BLUE)Instalando dependências...$(NC)"
-	$(DOCKER_COMPOSE) exec app-dev npm install
+	$(DOCKER_COMPOSE) exec app npm install
 
 ## Executa o linter
 lint:
 	@echo "$(BLUE)Executando linter...$(NC)"
-	$(DOCKER_COMPOSE) exec app-dev npm run lint
+	$(DOCKER_COMPOSE) exec app npm run lint
 
 ## Faz o build da aplicação
 build-app:
 	@echo "$(BLUE)Fazendo build da aplicação...$(NC)"
-	$(DOCKER_COMPOSE) exec app-dev npm run build
+	$(DOCKER_COMPOSE) exec app npm run build
 
 ## Exibe o status dos containers
 status:
