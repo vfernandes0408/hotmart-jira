@@ -2,9 +2,10 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, TrendingUp, Target, Activity, CheckCircle2, AlertCircle, Tag } from 'lucide-react';
+import { JiraIssue } from '@/types/jira';
 
 interface MetricsCardsProps {
-  data: any[];
+  data: JiraIssue[];
 }
 
 const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {

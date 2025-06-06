@@ -13,12 +13,13 @@ import MetricsCards from './MetricsCards';
 import FiltersPanel from './FiltersPanel';
 import TrendChart from './TrendChart';
 import PerformanceChart from './PerformanceChart';
+import { JiraIssue, Filters } from '@/types/jira';
 
 const Dashboard = () => {
   const [isConnected, setIsConnected] = useState(false);
-  const [jiraData, setJiraData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
-  const [filters, setFilters] = useState({
+  const [jiraData, setJiraData] = useState<JiraIssue[]>([]);
+  const [filteredData, setFilteredData] = useState<JiraIssue[]>([]);
+  const [filters, setFilters] = useState<Filters>({
     project: '',
     issueType: '',
     status: '',
@@ -28,40 +29,40 @@ const Dashboard = () => {
     dateRange: { start: '', end: '' }
   });
 
-  const handleJiraConnect = (data: any) => {
+  const handleJiraConnect = (data: JiraIssue[]) => {
     setIsConnected(true);
     setJiraData(data);
     setFilteredData(data);
   };
 
-  const handleFiltersChange = (newFilters: any) => {
+  const handleFiltersChange = (newFilters: Filters) => {
     setFilters(newFilters);
     
     // Apply all filters to data
     let filtered = jiraData;
     
     if (newFilters.project) {
-      filtered = filtered.filter((item: any) => item.project === newFilters.project);
+      filtered = filtered.filter((item: JiraIssue) => item.project === newFilters.project);
     }
     
     if (newFilters.issueType) {
-      filtered = filtered.filter((item: any) => item.issueType === newFilters.issueType);
+      filtered = filtered.filter((item: JiraIssue) => item.issueType === newFilters.issueType);
     }
     
     if (newFilters.status) {
-      filtered = filtered.filter((item: any) => item.status === newFilters.status);
+      filtered = filtered.filter((item: JiraIssue) => item.status === newFilters.status);
     }
     
     if (newFilters.assignee) {
-      filtered = filtered.filter((item: any) => item.assignee === newFilters.assignee);
+      filtered = filtered.filter((item: JiraIssue) => item.assignee === newFilters.assignee);
     }
     
     if (newFilters.category) {
-      filtered = filtered.filter((item: any) => item.category === newFilters.category);
+      filtered = filtered.filter((item: JiraIssue) => item.category === newFilters.category);
     }
     
     if (newFilters.labels) {
-      filtered = filtered.filter((item: any) => {
+      filtered = filtered.filter((item: JiraIssue) => {
         if (!item.labels || !Array.isArray(item.labels)) return false;
         return item.labels.includes(newFilters.labels);
       });
@@ -69,7 +70,7 @@ const Dashboard = () => {
     
     // Apply date range filter
     if (newFilters.dateRange?.start || newFilters.dateRange?.end) {
-      filtered = filtered.filter((item: any) => {
+      filtered = filtered.filter((item: JiraIssue) => {
         if (!item.created) return false;
         
         const itemDate = new Date(item.created);

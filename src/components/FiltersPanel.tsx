@@ -7,11 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Calendar, Filter, RotateCcw, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { JiraIssue, Filters } from '@/types/jira';
 
 interface FiltersPanelProps {
-  data: any[];
-  filters: any;
-  onFiltersChange: (filters: any) => void;
+  data: JiraIssue[];
+  filters: Filters;
+  onFiltersChange: (filters: Filters) => void;
 }
 
 const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersChange }) => {

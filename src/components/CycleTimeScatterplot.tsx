@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Clock, TrendingUp, BarChart3 } from 'lucide-react';
+import { JiraIssue } from '@/types/jira';
 
 interface CycleTimeScatterplotProps {
-  data: any[];
+  data: JiraIssue[];
 }
 
 const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => {

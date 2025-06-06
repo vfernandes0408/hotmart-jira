@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Key, Server, User, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { JiraIssue, JiraApiIssue } from '@/types/jira';
 
 interface JiraConnectorProps {
-  onConnect: (data: any) => void;
+  onConnect: (data: JiraIssue[]) => void;
 }
 
 const STORAGE_KEY = 'jira_credentials';
@@ -54,25 +55,115 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     saveCredentials(newCredentials);
   };
 
-  const generateMockData = () => {
-    const issueTypes = ['Story', 'Bug', 'Task', 'Epic'];
-    const statuses = ['To Do', 'In Progress', 'Code Review', 'Testing', 'Done'];
-    const categories = ['Frontend', 'Backend', 'DevOps', 'Design', 'QA'];
+  const calculateCycleTime = (created: string, resolved: string | null): number => {
+    if (!resolved) return 0;
     
-    return Array.from({ length: 100 }, (_, i) => ({
-      id: `PROJ-${i + 1}`,
-      summary: `Issue ${i + 1}`,
-      issueType: issueTypes[Math.floor(Math.random() * issueTypes.length)],
-      status: statuses[Math.floor(Math.random() * statuses.length)],
-      category: categories[Math.floor(Math.random() * categories.length)],
-      cycleTime: Math.floor(Math.random() * 30) + 1, // dias
-      leadTime: Math.floor(Math.random() * 45) + 5, // dias
-      storyPoints: Math.floor(Math.random() * 13) + 1,
-      created: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000).toISOString(),
-      resolved: Math.random() > 0.3 ? new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString() : null,
-      assignee: `Developer ${Math.floor(Math.random() * 10) + 1}`,
-      project: credentials.projectKey || 'DEMO'
-    }));
+    const createdDate = new Date(created);
+    const resolvedDate = new Date(resolved);
+    const diffTime = Math.abs(resolvedDate.getTime() - createdDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
+  const mapJiraIssueToLocal = (jiraIssue: JiraApiIssue): JiraIssue => {
+    const created = jiraIssue.fields.created;
+    const resolved = jiraIssue.fields.resolutiondate;
+    
+    return {
+      id: jiraIssue.key,
+      summary: jiraIssue.fields.summary || 'Sem título',
+      issueType: jiraIssue.fields.issuetype?.name || 'Unknown',
+      status: jiraIssue.fields.status?.name || 'Unknown',
+      category: jiraIssue.fields.components?.[0]?.name || jiraIssue.fields.customfield_10000 || 'Sem Categoria',
+      labels: jiraIssue.fields.labels || [],
+      cycleTime: calculateCycleTime(created, resolved),
+      leadTime: calculateCycleTime(created, resolved), // Pode ser refinado com outros campos
+      storyPoints: jiraIssue.fields.customfield_10016 || jiraIssue.fields.customfield_10004 || 0,
+      created: created,
+      resolved: resolved,
+      assignee: jiraIssue.fields.assignee?.displayName || 'Não atribuído',
+      project: jiraIssue.fields.project?.key || credentials.projectKey || 'UNKNOWN'
+    };
+  };
+
+  const fetchJiraData = async (): Promise<JiraIssue[]> => {
+    const auth = btoa(`${credentials.email}:${credentials.apiToken}`);
+    const baseUrl = credentials.serverUrl.replace(/\/$/, ''); // Remove trailing slash
+    
+    // JQL para buscar issues - pode ser customizado conforme necessário
+    const jql = credentials.projectKey 
+      ? `project = "${credentials.projectKey}" ORDER BY created DESC`
+      : 'ORDER BY created DESC';
+    
+    const url = `${baseUrl}/rest/api/3/search`;
+    
+    let allIssues: JiraIssue[] = [];
+    let startAt = 0;
+    const maxResults = 100; // Buscar em lotes de 100
+    let hasMoreResults = true;
+
+    try {
+      while (hasMoreResults) {
+        const params = new URLSearchParams({
+          jql: jql,
+          maxResults: maxResults.toString(),
+          startAt: startAt.toString(),
+          fields: 'key,summary,issuetype,status,assignee,created,resolutiondate,labels,components,project,customfield_10016,customfield_10004,customfield_10000'
+        });
+
+        const response = await fetch(`${url}?${params}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Credenciais inválidas. Verifique seu email e API token.');
+          } else if (response.status === 403) {
+            throw new Error('Acesso negado. Verifique as permissões da sua conta.');
+          } else if (response.status === 404) {
+            throw new Error('URL do servidor ou projeto não encontrado.');
+          } else {
+            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+          }
+        }
+
+        const data = await response.json();
+        
+        if (data.issues && data.issues.length > 0) {
+          const mappedIssues = data.issues.map(mapJiraIssueToLocal);
+          allIssues = [...allIssues, ...mappedIssues];
+          
+          // Verificar se há mais resultados
+          startAt += maxResults;
+          hasMoreResults = data.total > startAt;
+          
+          // Limite de segurança para evitar buscar demais
+          if (allIssues.length >= 1000) {
+            break;
+          }
+        } else {
+          hasMoreResults = false;
+        }
+      }
+      
+      if (allIssues.length === 0) {
+        throw new Error('Nenhum issue encontrado no projeto especificado.');
+      }
+
+      return allIssues;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Erro de rede ou CORS. Verifique se a URL está correta e se o servidor permite requisições do navegador.');
+      }
+      console.error('Erro ao buscar dados do Jira:', error);
+      throw error;
+    }
   };
 
   const handleConnect = async () => {
@@ -84,16 +175,14 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     setIsConnecting(true);
     
     try {
-      // Simular conexão com a API do Jira
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const jiraData = await fetchJiraData();
       
-      // Por enquanto, vamos usar dados mock
-      const mockData = generateMockData();
-      
-      toast.success('Conectado ao Jira com sucesso!');
-      onConnect(mockData);
+      toast.success(`Conectado ao Jira com sucesso! ${jiraData.length} issues carregados.`);
+      onConnect(jiraData);
     } catch (error) {
-      toast.error('Erro ao conectar com o Jira. Verifique suas credenciais.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao conectar com o Jira. Verifique suas credenciais.';
+      toast.error(errorMessage);
+      console.error('Erro de conexão:', error);
     } finally {
       setIsConnecting(false);
     }
@@ -209,8 +298,8 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
           </Button>
           
           <div className="text-center text-sm text-muted-foreground">
-            <Badge variant="secondary" className="bg-green-100 text-green-700">
-              Demo Mode: Dados de exemplo serão carregados para demonstração
+            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+              ⚡ Conectando diretamente à API do Jira
             </Badge>
           </div>
         </CardContent>
