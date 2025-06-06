@@ -34,6 +34,7 @@ import { JiraIssue } from "@/types/jira";
 
 interface LabelComparisonProps {
   data: JiraIssue[];
+  iaKeys?: { [key: string]: string };
 }
 
 interface ComparisonData {
@@ -53,13 +54,15 @@ interface ComparisonData {
   };
 }
 
-const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
+const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) => {
   const [selectedLabels1, setSelectedLabels1] = useState<string[]>([]);
   const [selectedLabels2, setSelectedLabels2] = useState<string[]>([]);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [insights, setInsights] = useState<string>("");
   const [showInsightsPanel, setShowInsightsPanel] = useState(false);
   const [additionalContext, setAdditionalContext] = useState<string>("");
+  const [selectedAiService, setSelectedAiService] = useState<"openai" | "gemini" | "hotmartjedai" | null>(null);
+  const [showAiSelector, setShowAiSelector] = useState(false);
 
   // Extrair todas as labels únicas dos dados
   const availableLabels = useMemo(() => {
@@ -177,11 +180,45 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
     ];
   }, [comparisonData, selectedLabels1, selectedLabels2]);
 
-  // Gerar insights com ChatGPT
-  const generateInsights = async () => {
+  // Verificar serviços de IA disponíveis
+  const availableAiServices = useMemo(() => {
+    const services: Array<{ key: "openai" | "gemini" | "hotmartjedai"; name: string; configured: boolean }> = [
+      { key: "openai", name: "OpenAI", configured: !!iaKeys["openai"] },
+      { key: "gemini", name: "Gemini", configured: !!iaKeys["gemini"] },
+      { key: "hotmartjedai", name: "HotmartJedai", configured: !!iaKeys["hotmartjedai"] }
+    ];
+    return services.filter(service => service.configured);
+  }, [iaKeys]);
+
+  // Abrir seletor de IA
+  const handleAiClick = () => {
+    console.log("iaKeys recebidas:", iaKeys);
+    console.log("availableAiServices:", availableAiServices);
+    
+    if (availableAiServices.length === 0) {
+      setInsights("❌ **Nenhum serviço de IA configurado**\n\nPara usar a funcionalidade de IA:\n1. Configure pelo menos uma chave de API no header\n2. Escolha entre OpenAI, Gemini ou HotmartJedai");
+      setShowInsightsPanel(true);
+      return;
+    }
+    
+    if (availableAiServices.length === 1) {
+      setSelectedAiService(availableAiServices[0].key);
+      generateInsights(availableAiServices[0].key);
+      return;
+    }
+    
+    setShowAiSelector(true);
+  };
+
+  // Gerar insights com o serviço selecionado
+  const generateInsights = async (aiService?: "openai" | "gemini" | "hotmartjedai") => {
     if (!comparisonData) return;
+    
+    const serviceToUse = aiService || selectedAiService;
+    if (!serviceToUse) return;
 
     setIsGeneratingInsights(true);
+    setShowAiSelector(false);
 
     try {
       const prompt = `
@@ -189,27 +226,15 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
 
         Label 1: "${selectedLabels1.join(", ")}"
         - Total de issues: ${comparisonData.label1Stats.count}
-        - Cycle time médio: ${comparisonData.label1Stats.avgCycleTime.toFixed(
-          1
-        )} dias
-        - Story points médio: ${comparisonData.label1Stats.avgStoryPoints.toFixed(
-          1
-        )}
-        - Taxa de conclusão: ${comparisonData.label1Stats.completionRate.toFixed(
-          1
-        )}%
+        - Cycle time médio: ${comparisonData.label1Stats.avgCycleTime.toFixed(1)} dias
+        - Story points médio: ${comparisonData.label1Stats.avgStoryPoints.toFixed(1)}
+        - Taxa de conclusão: ${comparisonData.label1Stats.completionRate.toFixed(1)}%
 
         Label 2: "${selectedLabels2.join(", ")}"
         - Total de issues: ${comparisonData.label2Stats.count}
-        - Cycle time médio: ${comparisonData.label2Stats.avgCycleTime.toFixed(
-          1
-        )} dias
-        - Story points médio: ${comparisonData.label2Stats.avgStoryPoints.toFixed(
-          1
-        )}
-        - Taxa de conclusão: ${comparisonData.label2Stats.completionRate.toFixed(
-          1
-        )}%
+        - Cycle time médio: ${comparisonData.label2Stats.avgCycleTime.toFixed(1)} dias
+        - Story points médio: ${comparisonData.label2Stats.avgStoryPoints.toFixed(1)}
+        - Taxa de conclusão: ${comparisonData.label2Stats.completionRate.toFixed(1)}%
 
         Forneça insights em português sobre:
         1. Qual label performa melhor e por quê
@@ -217,36 +242,99 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
         3. Recomendações para melhorar a performance
         4. Padrões ou tendências identificados
 
-        ${
-          additionalContext
-            ? `\nInformações adicionais do contexto:\n${additionalContext}\n`
-            : ""
-        }
+        ${additionalContext ? `\nInformações adicionais do contexto:\n${additionalContext}\n` : ""}
 
         Mantenha a resposta concisa e focada em ações práticas.
       `;
 
-      // Usar apenas a API real do OpenAI
-      const { callOpenAIApi, getOpenAIApiKey } = await import(
-        "../utils/openai"
-      );
+             let result = "";
+       
+       if (serviceToUse === "openai") {
+         const apiKey = iaKeys["openai"];
+         if (!apiKey) {
+           throw new Error("Chave da API OpenAI não configurada.");
+         }
+         
+         const response = await fetch('https://api.openai.com/v1/chat/completions', {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+             'Authorization': `Bearer ${apiKey}`
+           },
+           body: JSON.stringify({
+             model: 'gpt-3.5-turbo',
+             messages: [
+               {
+                 role: 'user',
+                 content: prompt
+               }
+             ],
+             max_tokens: 1000,
+             temperature: 0.7
+           })
+         });
 
-      if (!getOpenAIApiKey()) {
-        throw new Error(
-          "Para gerar insights com IA, configure sua chave da API OpenAI na tela de conexão."
-        );
-      }
+         if (!response.ok) {
+           if (response.status === 401) {
+             throw new Error('Chave da API OpenAI inválida');
+           } else if (response.status === 429) {
+             throw new Error('Limite de requisições da API OpenAI excedido');
+           } else {
+             throw new Error(`Erro da API OpenAI: ${response.status}`);
+           }
+         }
 
-      const result = await callOpenAIApi(prompt);
+         const data = await response.json();
+         if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+           throw new Error('Resposta inválida da API OpenAI');
+         }
+
+         result = data.choices[0].message.content;
+       } else if (serviceToUse === "hotmartjedai") {
+         const apiKey = iaKeys["hotmartjedai"];
+         if (!apiKey) {
+           throw new Error("Chave da API HotmartJedai não configurada.");
+         }
+         
+         const requestBody = {
+           "prompt": "example-prompt",
+           "context": {
+             "prompt": prompt
+           }
+         };
+         
+         console.log("HotmartJedai Request Body:", requestBody);
+         
+         const response = await fetch('https://hotmart-ai-v2.buildstaging.com/v2/completions/', {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json'
+           },
+           body: JSON.stringify(requestBody)
+         });
+
+         console.log("HotmartJedai Response Status:", response.status);
+         
+         if (!response.ok) {
+           const errorText = await response.text();
+           console.log("HotmartJedai Error Response:", errorText);
+           throw new Error(`Erro da API HotmartJedai: ${response.status} - ${errorText}`);
+         }
+
+         const data = await response.json();
+         console.log("HotmartJedai Response Data:", data);
+         result = data.result || data.completion || data.text || data.response || JSON.stringify(data);
+       } else if (serviceToUse === "gemini") {
+         // Para Gemini, simular por enquanto
+         result = `🤖 **Análise com Gemini**\n\n*Funcionalidade em desenvolvimento. Por enquanto, apenas OpenAI e HotmartJedai estão implementados.*\n\nDados analisados:\n- Label 1: ${selectedLabels1.join(", ")} (${comparisonData.label1Stats.count} issues)\n- Label 2: ${selectedLabels2.join(", ")} (${comparisonData.label2Stats.count} issues)`;
+       }
+
       setInsights(result);
       setShowInsightsPanel(true);
     } catch (error) {
       console.error("Erro ao gerar insights:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Erro ao gerar insights";
-      setInsights(
-        `❌ **Erro**: ${errorMessage}\n\nPara resolver:\n1. Configure sua chave da API OpenAI na tela de conexão\n2. Verifique se a chave está correta\n3. Verifique sua conexão com a internet`
-      );
+      const errorMessage = error instanceof Error ? error.message : "Erro ao gerar insights";
+      setInsights(`❌ **Erro**: ${errorMessage}\n\nPara resolver:\n1. Verifique se a chave da API está configurada\n2. Verifique se a chave está correta\n3. Verifique sua conexão com a internet`);
       setShowInsightsPanel(true);
     } finally {
       setIsGeneratingInsights(false);
@@ -278,7 +366,7 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
                 </Badge>
                 {comparisonData && (
                   <Button
-                    onClick={generateInsights}
+                    onClick={handleAiClick}
                     disabled={isGeneratingInsights}
                     size="sm"
                     className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
@@ -508,7 +596,7 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
                   </span>
                 </div>
                 <Button
-                  onClick={generateInsights}
+                  onClick={() => generateInsights(selectedAiService || undefined)}
                   disabled={isGeneratingInsights}
                   className="mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 w-full"
                   size="sm"
@@ -528,6 +616,45 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Modal de Seleção de IA */}
+      {showAiSelector && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-600" />
+              Escolher Serviço de IA
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Selecione qual serviço de IA usar para gerar os insights:
+            </p>
+            <div className="space-y-2 mb-6">
+              {availableAiServices.map((service) => (
+                <button
+                  key={service.key}
+                  onClick={() => {
+                    setSelectedAiService(service.key);
+                    generateInsights(service.key);
+                  }}
+                  className="w-full p-3 border rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between"
+                >
+                  <span className="font-medium">{service.name}</span>
+                  <span className="text-green-600 text-sm">🟢 Configurado</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowAiSelector(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

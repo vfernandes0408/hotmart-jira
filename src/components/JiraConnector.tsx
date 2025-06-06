@@ -10,7 +10,6 @@ import {
   Server,
   User,
   CheckCircle2,
-  Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { JiraIssue, JiraApiIssue } from "@/types/jira";
@@ -27,7 +26,6 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     email: "",
     apiToken: "",
     projectKey: "",
-    openaiApiKey: "",
   });
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -382,26 +380,7 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
                 />
               </div>
 
-              {/* OpenAI API Key - Linha separada */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="openaiApiKey"
-                  className="flex items-center gap-2 text-sm font-medium text-gray-800"
-                >
-                  <Brain className="w-4 h-4 text-orange-600" />
-                  OpenAI API Key (opcional para IA)
-                </Label>
-                <Input
-                  id="openaiApiKey"
-                  type="password"
-                  placeholder="sk-... (para insights com IA)"
-                  value={credentials.openaiApiKey}
-                  onChange={(e) =>
-                    handleInputChange("openaiApiKey", e.target.value)
-                  }
-                  className="h-9 text-sm border-gray-200 bg-white focus:border-orange-400 focus:ring-1 focus:ring-orange-100"
-                />
-              </div>
+
 
               {/* Help section - Compacto */}
               <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg p-3">

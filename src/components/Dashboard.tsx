@@ -45,126 +45,7 @@ interface SessionData {
   timestamp: number;
 }
 
-// Componente para mostrar status da API OpenAI
-const OpenAIStatus = () => {
-  const [hasApiKey, setHasApiKey] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
 
-  const checkApiKey = async () => {
-    const { getOpenAIApiKey } = await import("../utils/openai");
-    setHasApiKey(!!getOpenAIApiKey());
-  };
-
-  useEffect(() => {
-    checkApiKey();
-  }, []);
-
-  const handleSaveApiKey = async () => {
-    if (!apiKey.trim()) return;
-
-    setIsSaving(true);
-    try {
-      const { setOpenAIApiKey } = await import("../utils/openai");
-      setOpenAIApiKey(apiKey.trim());
-      await checkApiKey();
-      setIsModalOpen(false);
-      setApiKey("");
-    } catch (error) {
-      console.error("Erro ao salvar OpenAI API Key:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const StatusBadge = () => (
-    <div
-      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-        hasApiKey
-          ? "bg-green-100 text-green-700 border border-green-200"
-          : "bg-red-100 text-red-700 border border-red-200 cursor-pointer hover:bg-red-200"
-      }`}
-      onClick={!hasApiKey ? () => setIsModalOpen(true) : undefined}
-    >
-      {hasApiKey
-        ? "🤖 OpenAI API configurado"
-        : "❌ OpenAI API não configurada"}
-    </div>
-  );
-
-  if (hasApiKey) {
-    return <StatusBadge />;
-  }
-
-  return (
-    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-      <DialogTrigger asChild>
-        <StatusBadge />
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Brain className="w-5 h-5 text-orange-600" />
-            Configurar OpenAI API Key
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="openai-key" className="text-sm font-medium">
-              OpenAI API Key
-            </Label>
-            <Input
-              id="openai-key"
-              type="password"
-              placeholder="sk-..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs text-blue-700">
-              <strong>💡 Como obter:</strong>
-              <br />
-              1. Acesse platform.openai.com/api-keys
-              <br />
-              2. Clique em "Create new secret key"
-              <br />
-              3. Copie e cole a chave acima
-            </p>
-          </div>
-          <div className="flex gap-2 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsModalOpen(false)}
-              className="flex-1"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSaveApiKey}
-              disabled={!apiKey.trim() || isSaving}
-              className="flex-1 bg-orange-500 hover:bg-orange-600"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Salvar
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 const Dashboard = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -181,6 +62,18 @@ const Dashboard = () => {
     labels: "",
     dateRange: { start: "", end: "" },
   });
+
+  // Estado para IA
+  const [iaModalOpen, setIaModalOpen] = useState(false);
+  const [selectedIa, setSelectedIa] = useState<"openai" | "gemini" | "hotmartjedai" | null>(null);
+  const [iaKeys, setIaKeys] = useState<{ [key: string]: string }>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("iaKeys") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const [apiKey, setApiKey] = useState("");
 
   // Funções para gerenciar sessão
   const saveSession = useCallback((data: JiraIssue[], projectKey: string) => {
@@ -463,6 +356,33 @@ const Dashboard = () => {
                   fill="#FF4000"
                 ></path>
               </svg>
+              {/* Botões de IA ao lado do logo */}
+              <div className="flex items-center gap-2 ml-4">
+                <Button 
+                  size="sm" 
+                  variant={iaKeys["openai"] ? "default" : "outline"}
+                  className={iaKeys["openai"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                  onClick={() => { setSelectedIa("openai"); setApiKey(iaKeys["openai"] || ""); setIaModalOpen(true); }}
+                >
+                  {iaKeys["openai"] ? "🟢 OpenAI" : "OpenAI"}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant={iaKeys["gemini"] ? "default" : "outline"}
+                  className={iaKeys["gemini"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                  onClick={() => { setSelectedIa("gemini"); setApiKey(iaKeys["gemini"] || ""); setIaModalOpen(true); }}
+                >
+                  {iaKeys["gemini"] ? "🟢 Gemini" : "Gemini"}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant={iaKeys["hotmartjedai"] ? "default" : "outline"}
+                  className={iaKeys["hotmartjedai"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                  onClick={() => { setSelectedIa("hotmartjedai"); setApiKey(iaKeys["hotmartjedai"] || ""); setIaModalOpen(true); }}
+                >
+                  {iaKeys["hotmartjedai"] ? "🟢 HotmartJedai" : "HotmartJedai"}
+                </Button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -476,9 +396,7 @@ const Dashboard = () => {
                 <span className="hidden sm:inline">{isConnected ? "🟢 Conectado" : "🟡 Desconectado"}</span>
                 <span className="sm:hidden">{isConnected ? "🟢" : "🟡"}</span>
               </div>
-              <div className="hidden md:block">
-                <OpenAIStatus />
-              </div>
+
               {isConnected && (
                 <Button
                   onClick={handleLogout}
@@ -649,7 +567,7 @@ const Dashboard = () => {
                       >
                         <LabelComparison
                           data={filteredData}
-                          projectKey={projectKey}
+                          iaKeys={iaKeys}
                         />
                       </TabsContent>
 
@@ -674,6 +592,41 @@ const Dashboard = () => {
           )}
         </div>
       </main>
+
+      {/* Modal de configuração de IA */}
+      <Dialog open={iaModalOpen} onOpenChange={setIaModalOpen}>
+        <DialogContent>
+                      <DialogHeader>
+              <DialogTitle>
+                {selectedIa === "openai" && "Configurar OpenAI API Key"}
+                {selectedIa === "gemini" && "Configurar Gemini API Key"}
+                {selectedIa === "hotmartjedai" && "Configurar Hotmart JedAi Key"}
+              </DialogTitle>
+            </DialogHeader>
+          <div className="space-y-4">
+            <Label className="text-sm font-medium">API Key</Label>
+            <Input
+              type="password"
+              placeholder="Digite a chave"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
+            <Button
+              onClick={() => {
+                if (selectedIa) {
+                  const newKeys = { ...iaKeys, [selectedIa]: apiKey };
+                  setIaKeys(newKeys);
+                  localStorage.setItem("iaKeys", JSON.stringify(newKeys));
+                  setIaModalOpen(false);
+                }
+              }}
+              disabled={!apiKey.trim()}
+            >
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
