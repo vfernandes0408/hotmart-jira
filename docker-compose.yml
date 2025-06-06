@@ -28,7 +28,7 @@ services:
       target: production
     container_name: jira-analytics-prod
     ports:
-      - "80:80"
+      - "8888:8888"
       - "443:443"
     environment:
       - NODE_ENV=production
@@ -47,7 +47,7 @@ services:
     image: nginx:alpine
     container_name: jira-nginx-proxy
     ports:
-      - "8888:80"
+      - "8888:8888"
     volumes:
       - ./nginx-proxy.conf:/etc/nginx/nginx.conf:ro
     depends_on:
