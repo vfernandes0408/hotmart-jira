@@ -3,8 +3,10 @@ import { JiraIssue } from "@/types/jira";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Calendar, User, Tag, BarChart3 } from "lucide-react";
+import { Search, Calendar, User, Tag, BarChart3, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { JiraLink, renderTextWithJiraLinks } from "@/utils/jiraLinks";
+
 
 interface TicketListProps {
   data: JiraIssue[];
@@ -13,6 +15,8 @@ interface TicketListProps {
 const TicketList: React.FC<TicketListProps> = ({ data }) => {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
 
   // Obter lista única de status
   const allStatuses = useMemo(() => {
@@ -20,13 +24,49 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
     return statuses.sort();
   }, [data]);
 
-  // Filtrar tickets baseado nos status selecionados e termo de busca
+  // Obter lista única de responsáveis
+  const allAssignees = useMemo(() => {
+    const assignees = Array.from(new Set(data.map(ticket => ticket.assignee).filter(assignee => assignee && assignee !== 'Não atribuído')));
+    return assignees.sort();
+  }, [data]);
+
+  // Obter lista única de labels que começam com "SCH"
+  const allLabels = useMemo(() => {
+    const labels = new Set<string>();
+    data.forEach(ticket => {
+      if (ticket.labels && Array.isArray(ticket.labels)) {
+        ticket.labels.forEach(label => {
+          // Filtrar apenas labels que começam com "SCH"
+          if (label && label.startsWith("SCH")) {
+            labels.add(label);
+          }
+        });
+      }
+    });
+    return Array.from(labels).sort();
+  }, [data]);
+
+  // Filtrar tickets baseado nos status selecionados, label selecionada e termo de busca
   const filteredTickets = useMemo(() => {
     let filtered = data;
 
     // Filtrar por status se algum estiver selecionado
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter(ticket => selectedStatuses.includes(ticket.status));
+    }
+
+    // Filtrar por labels se alguma estiver selecionada
+    if (selectedLabels.length > 0) {
+      filtered = filtered.filter(ticket => 
+        ticket.labels && ticket.labels.some(label => selectedLabels.includes(label))
+      );
+    }
+
+    // Filtrar por responsáveis se algum estiver selecionado
+    if (selectedAssignees.length > 0) {
+      filtered = filtered.filter(ticket => 
+        selectedAssignees.includes(ticket.assignee)
+      );
     }
 
     // Filtrar por termo de busca
@@ -41,7 +81,7 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
     }
 
     return filtered;
-  }, [data, selectedStatuses, searchTerm]);
+  }, [data, selectedStatuses, selectedLabels, selectedAssignees, searchTerm]);
 
   // Manipular seleção de status
   const handleStatusToggle = (status: string) => {
@@ -49,6 +89,24 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
       prev.includes(status) 
         ? prev.filter(s => s !== status)
         : [...prev, status]
+    );
+  };
+
+  // Manipular seleção de labels
+  const handleLabelToggle = (label: string) => {
+    setSelectedLabels(prev => 
+      prev.includes(label) 
+        ? prev.filter(l => l !== label)
+        : [...prev, label]
+    );
+  };
+
+  // Manipular seleção de responsáveis
+  const handleAssigneeToggle = (assignee: string) => {
+    setSelectedAssignees(prev => 
+      prev.includes(assignee) 
+        ? prev.filter(a => a !== assignee)
+        : [...prev, assignee]
     );
   };
 
@@ -95,6 +153,38 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
           />
         </div>
 
+        {/* Filtro por Labels SCH */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 p-3">
+          <h3 className="text-sm font-semibold text-zinc-800 mb-3 flex items-center gap-1.5">
+            <Tag className="w-3.5 h-3.5" />
+            Filtrar por Labels SCH
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {allLabels.map(label => (
+              <div key={label} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`label-${label}`}
+                  checked={selectedLabels.includes(label)}
+                  onCheckedChange={() => handleLabelToggle(label)}
+                />
+                <label 
+                  htmlFor={`label-${label}`}
+                  className="text-xs cursor-pointer"
+                >
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                    {label}
+                  </span>
+                </label>
+              </div>
+            ))}
+          </div>
+          {selectedLabels.length > 0 && (
+            <div className="mt-2 text-xs text-gray-600">
+              {selectedLabels.length} label{selectedLabels.length > 1 ? 's' : ''} selecionada{selectedLabels.length > 1 ? 's' : ''} • {filteredTickets.length} ticket{filteredTickets.length !== 1 ? 's' : ''} encontrado{filteredTickets.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+
         {/* Filtros de Status */}
         <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 p-3">
           <h3 className="text-sm font-semibold text-zinc-800 mb-3 flex items-center gap-1.5">
@@ -126,6 +216,38 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
             </div>
           )}
         </div>
+
+        {/* Filtro por Responsáveis */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 p-3">
+          <h3 className="text-sm font-semibold text-zinc-800 mb-3 flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5" />
+            Filtrar por Responsável
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {allAssignees.map(assignee => (
+              <div key={assignee} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`assignee-${assignee}`}
+                  checked={selectedAssignees.includes(assignee)}
+                  onCheckedChange={() => handleAssigneeToggle(assignee)}
+                />
+                <label 
+                  htmlFor={`assignee-${assignee}`}
+                  className="text-xs cursor-pointer"
+                >
+                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                    {assignee}
+                  </span>
+                </label>
+              </div>
+            ))}
+          </div>
+          {selectedAssignees.length > 0 && (
+            <div className="mt-2 text-xs text-gray-600">
+              {selectedAssignees.length} responsável{selectedAssignees.length > 1 ? 'eis' : ''} selecionado{selectedAssignees.length > 1 ? 's' : ''} • {filteredTickets.length} ticket{filteredTickets.length !== 1 ? 's' : ''} encontrado{filteredTickets.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Lista de Tickets */}
@@ -152,20 +274,22 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
                   className="bg-white rounded-lg border border-zinc-200/50 p-3 hover:shadow-sm transition-shadow"
                 >
                   {/* Header do ticket */}
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono text-blue-600 font-medium">
-                        {ticket.id}
-                      </span>
-                      <Badge className={getIssueTypeColor(ticket.issueType)}>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-2 gap-2">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                      <JiraLink 
+                        ticketId={ticket.id}
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                        showIcon={true}
+                      />
+                      <Badge className={`text-xs ${getIssueTypeColor(ticket.issueType)}`}>
                         {ticket.issueType}
                       </Badge>
-                      <Badge className={getStatusColor(ticket.status)}>
+                      <Badge className={`text-xs ${getStatusColor(ticket.status)}`}>
                         {ticket.status}
                       </Badge>
                     </div>
                     {ticket.storyPoints > 0 && (
-                      <div className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">
+                      <div className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium w-fit">
                         {ticket.storyPoints} pts
                       </div>
                     )}
@@ -173,14 +297,14 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
 
                   {/* Título */}
                   <h4 className="text-sm font-medium text-zinc-800 mb-2 line-clamp-2">
-                    {ticket.summary}
+                    {renderTextWithJiraLinks(ticket.summary)}
                   </h4>
 
                   {/* Informações */}
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                  <div className="flex flex-col sm:grid sm:grid-cols-2 gap-1 sm:gap-2 text-xs text-gray-600">
                     <div className="flex items-center gap-1">
                       <User className="w-3 h-3" />
-                      {ticket.assignee || 'Não atribuído'}
+                      <span className="truncate">{ticket.assignee || 'Não atribuído'}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
@@ -189,12 +313,12 @@ const TicketList: React.FC<TicketListProps> = ({ data }) => {
                   </div>
 
                   {/* Métricas */}
-                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                    <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                      Cycle: {ticket.cycleTime}d
+                  <div className="flex gap-2 mt-2 text-xs">
+                    <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded flex-1 text-center sm:text-left">
+                      <span className="hidden sm:inline">Cycle:</span> {ticket.cycleTime}d
                     </div>
-                    <div className="bg-purple-50 text-purple-700 px-2 py-1 rounded">
-                      Lead: {ticket.leadTime}d
+                    <div className="bg-purple-50 text-purple-700 px-2 py-1 rounded flex-1 text-center sm:text-left">
+                      <span className="hidden sm:inline">Lead:</span> {ticket.leadTime}d
                     </div>
                   </div>
 
