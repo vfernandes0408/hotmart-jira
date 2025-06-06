@@ -11,6 +11,14 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: [
       "hotmart-hotmartjira-dm4rdw-c006a0-69-62-89-150.traefik.me"
     ],
+    proxy: {
+      '/api/jira': {
+        target: 'https://hotmart.atlassian.net',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/jira/, ''),
+        secure: true,
+      }
+    },
   },
   plugins: [
     react(),

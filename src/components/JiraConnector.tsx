@@ -89,14 +89,13 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
 
   const fetchJiraData = async (): Promise<JiraIssue[]> => {
     const auth = btoa(`${credentials.email}:${credentials.apiToken}`);
-    const baseUrl = credentials.serverUrl.replace(/\/$/, ''); // Remove trailing slash
+    // Use the Vite proxy instead of direct URL
+    const url = '/api/jira/rest/api/3/search';
     
     // JQL para buscar issues - pode ser customizado conforme necessário
     const jql = credentials.projectKey 
       ? `project = "${credentials.projectKey}" ORDER BY created DESC`
       : 'ORDER BY created DESC';
-    
-    const url = `${baseUrl}/rest/api/3/search`;
     
     let allIssues: JiraIssue[] = [];
     let startAt = 0;
