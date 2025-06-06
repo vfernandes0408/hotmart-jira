@@ -7,13 +7,13 @@ services:
       target: development
     container_name: jira-analytics-dev
     ports:
-      - "8080:8080"
+      - "8888:8888"
     volumes:
       - .:/app
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:8080
+      - VITE_API_URL=http://localhost:8888
     networks:
       - jira-network
     restart: unless-stopped
@@ -47,7 +47,7 @@ services:
     image: nginx:alpine
     container_name: jira-nginx-proxy
     ports:
-      - "8080:80"
+      - "8888:80"
     volumes:
       - ./nginx-proxy.conf:/etc/nginx/nginx.conf:ro
     depends_on:

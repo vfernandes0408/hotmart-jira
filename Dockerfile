@@ -48,7 +48,7 @@ RUN npm ci
 COPY . .
 
 # Expor porta do dev server
-EXPOSE 8080
+EXPOSE 8888
 
 # Comando para desenvolvimento
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080"] 
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8888"] 
