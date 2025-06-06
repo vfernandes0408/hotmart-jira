@@ -9,6 +9,7 @@ import { JiraIssue } from '@/types/jira';
 
 interface LabelComparisonProps {
   data: JiraIssue[];
+  projectKey?: string;
 }
 
 interface ComparisonData {
@@ -28,17 +29,18 @@ interface ComparisonData {
   };
 }
 
-const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
+const LabelComparison: React.FC<LabelComparisonProps> = ({ data, projectKey }) => {
   const [selectedLabel1, setSelectedLabel1] = useState<string>('');
   const [selectedLabel2, setSelectedLabel2] = useState<string>('');
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [insights, setInsights] = useState<string>('');
   const [showInsightsPanel, setShowInsightsPanel] = useState(false);
 
-  // Filtrar dados para mostrar apenas itens que começam com "SCH"
+  // Filtrar dados para mostrar apenas itens do projeto especificado
   const filteredData = useMemo(() => {
-    return data.filter(issue => issue.id && issue.id.startsWith('SCH'));
-  }, [data]);
+    if (!projectKey) return data;
+    return data.filter(issue => issue.id && issue.id.startsWith(projectKey));
+  }, [data, projectKey]);
 
   // Função para inverter a comparação (trocar label1 com label2)
   const swapLabels = () => {
@@ -49,36 +51,34 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
     setInsights('');
   };
 
-  // Extrair todas as labels únicas dos dados filtrados (SCH) que também começam com "SCH"
+  // Extrair todas as labels únicas dos dados filtrados que começam com o project key
   const availableLabels = useMemo(() => {
     const labelSet = new Set<string>();
     filteredData.forEach(issue => {
       if (issue.labels && Array.isArray(issue.labels)) {
         issue.labels.forEach(label => {
-          // Filtrar apenas labels que começam com "SCH"
-          if (label && label.startsWith('SCH')) {
+          // Filtrar apenas labels que começam com o project key
+          if (label && projectKey && label.startsWith(projectKey)) {
             labelSet.add(label);
           }
         });
       }
     });
     return Array.from(labelSet).sort();
-  }, [filteredData]);
+  }, [filteredData, projectKey]);
 
-  // Calcular dados de comparação usando apenas dados SCH
+  // Calcular dados de comparação usando apenas dados do projeto
   const comparisonData = useMemo((): ComparisonData | null => {
     if (!selectedLabel1 || !selectedLabel2) return null;
 
-    // Filtrar issues da label 1 que começam com "SCH" E têm a label selecionada
+    // Filtrar issues da label 1 que pertencem ao projeto E têm a label selecionada
     const label1Data = filteredData.filter(issue => 
-      issue.labels && issue.labels.includes(selectedLabel1) &&
-      issue.id && issue.id.startsWith('SCH')
+      issue.labels && issue.labels.includes(selectedLabel1)
     );
     
-    // Filtrar issues da label 2 que começam com "SCH" E têm a label selecionada
+    // Filtrar issues da label 2 que pertencem ao projeto E têm a label selecionada
     const label2Data = filteredData.filter(issue => 
-      issue.labels && issue.labels.includes(selectedLabel2) &&
-      issue.id && issue.id.startsWith('SCH')
+      issue.labels && issue.labels.includes(selectedLabel2)
     );
 
     const calculateStats = (issues: JiraIssue[]) => {
@@ -195,7 +195,7 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
               </CardTitle>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                  Apenas issues e labels SCH ({availableLabels.length} labels)
+                  Apenas issues e labels {projectKey || 'do projeto'} ({availableLabels.length} labels)
                 </Badge>
                 {comparisonData && (
                   <Button
@@ -329,10 +329,10 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data }) => {
           <div className="text-center py-8 text-gray-500">
             <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-400" />
             <p className="text-lg font-medium">Selecione duas labels para comparar</p>
-            <p className="text-sm">Escolha duas labels diferentes para ver a análise comparativa dos issues SCH</p>
+            <p className="text-sm">Escolha duas labels diferentes para ver a análise comparativa dos issues {projectKey || 'do projeto'}</p>
             {availableLabels.length === 0 && (
               <p className="text-xs text-red-500 mt-2">
-                Nenhuma label que comece com "SCH" encontrada
+                Nenhuma label que comece com "{projectKey || 'PROJECT'}" encontrada
               </p>
             )}
           </div>

@@ -30,6 +30,7 @@ import {
   TrendingUp,
   Target,
   Activity,
+  LogOut,
 } from "lucide-react";
 import JiraConnector from "./JiraConnector";
 import CycleTimeScatterplot from "./CycleTimeScatterplot";
@@ -40,6 +41,15 @@ import PerformanceChart from "./PerformanceChart";
 import CategoryDebugger from "./CategoryDebugger";
 import LabelComparison from "./LabelComparison";
 import { JiraIssue, Filters } from "@/types/jira";
+
+const SESSION_KEY = "jira_dashboard_session";
+const SESSION_DURATION = 10 * 60 * 1000; // 10 minutos em millisegundos
+
+interface SessionData {
+  jiraData: JiraIssue[];
+  projectKey: string;
+  timestamp: number;
+}
 
 // Componente para mostrar status da API OpenAI
 const OpenAIStatus = () => {
@@ -72,6 +82,8 @@ const Dashboard = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [jiraData, setJiraData] = useState<JiraIssue[]>([]);
   const [filteredData, setFilteredData] = useState<JiraIssue[]>([]);
+  const [projectKey, setProjectKey] = useState<string>("");
+  const [sessionTimer, setSessionTimer] = useState<NodeJS.Timeout | null>(null);
   const [filters, setFilters] = useState<Filters>({
     project: "",
     issueType: "",
@@ -81,9 +93,80 @@ const Dashboard = () => {
     dateRange: { start: "", end: "" },
   });
 
-  // Clean up any potential external data interference
+  // Funções para gerenciar sessão
+  const saveSession = (data: JiraIssue[], projectKey: string) => {
+    const sessionData: SessionData = {
+      jiraData: data,
+      projectKey,
+      timestamp: Date.now(),
+    };
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    } catch (error) {
+      console.error("Erro ao salvar sessão:", error);
+    }
+  };
+
+  const loadSession = (): SessionData | null => {
+    try {
+      const sessionStr = localStorage.getItem(SESSION_KEY);
+      if (!sessionStr) return null;
+
+      const sessionData: SessionData = JSON.parse(sessionStr);
+      const isValidSession = Date.now() - sessionData.timestamp < SESSION_DURATION;
+      
+      if (!isValidSession) {
+        clearSession();
+        return null;
+      }
+
+      return sessionData;
+    } catch (error) {
+      console.error("Erro ao carregar sessão:", error);
+      clearSession();
+      return null;
+    }
+  };
+
+  const clearSession = () => {
+    try {
+      localStorage.removeItem(SESSION_KEY);
+    } catch (error) {
+      console.error("Erro ao limpar sessão:", error);
+    }
+    
+    if (sessionTimer) {
+      clearTimeout(sessionTimer);
+      setSessionTimer(null);
+    }
+  };
+
+  const startSessionTimer = () => {
+    if (sessionTimer) {
+      clearTimeout(sessionTimer);
+    }
+
+    const timer = setTimeout(() => {
+      handleLogout();
+      console.log("Sessão expirada após 10 minutos");
+    }, SESSION_DURATION);
+
+    setSessionTimer(timer);
+  };
+
+  // Verificar sessão existente na inicialização
   useEffect(() => {
-    // Clear any global variables that might interfere
+    const existingSession = loadSession();
+    if (existingSession) {
+      setJiraData(existingSession.jiraData);
+      setFilteredData(existingSession.jiraData);
+      setProjectKey(existingSession.projectKey);
+      setIsConnected(true);
+      startSessionTimer();
+      console.log("Sessão restaurada automaticamente");
+    }
+
+    // Clean up any potential external data interference
     if (typeof window !== "undefined") {
       // Remove any non-application related data from window object
       const protectedKeys = [
@@ -102,9 +185,16 @@ const Dashboard = () => {
         }
       });
     }
+
+    // Cleanup na desmontagem do componente
+    return () => {
+      if (sessionTimer) {
+        clearTimeout(sessionTimer);
+      }
+    };
   }, []);
 
-  const handleJiraConnect = (data: JiraIssue[]) => {
+  const handleJiraConnect = (data: JiraIssue[], connectedProjectKey?: string) => {
     // Limpar e validar dados antes de usar
     const cleanData = data.filter((item) => {
       // Verificar se é um objeto válido do Jira
@@ -119,9 +209,15 @@ const Dashboard = () => {
       return true;
     });
 
+    // Capturar o project key dos dados ou usar o fornecido
+    const detectedProjectKey = connectedProjectKey || 
+      (cleanData.length > 0 && cleanData[0].project) || 
+      (cleanData.length > 0 && cleanData[0].id ? cleanData[0].id.split('-')[0] : '');
+    
     setIsConnected(true);
     setJiraData(cleanData);
     setFilteredData(cleanData);
+    setProjectKey(detectedProjectKey);
   };
 
   const handleFiltersChange = (newFilters: Filters) => {
@@ -184,28 +280,54 @@ const Dashboard = () => {
     setFilteredData(filtered);
   };
 
+  const handleLogout = () => {
+    setIsConnected(false);
+    setJiraData([]);
+    setFilteredData([]);
+    setProjectKey("");
+    setFilters({
+      project: "",
+      issueType: "",
+      status: "",
+      assignee: "",
+      labels: "",
+      dateRange: { start: "", end: "" },
+    });
+  };
+
   return (
     <div className="h-screen bg-gradient-to-br from-zinc-50 via-neutral-50 to-stone-100 flex flex-col overflow-hidden">
       {/* Header - Optimized for MacBook Air 13" */}
       <header className="flex-shrink-0 border-b border-zinc-200/50 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto px-3 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold bg-gradient-to-r from-zinc-800 to-zinc-600 bg-clip-text text-transparent">
-                Jira Analytics
-              </h1>
-              <div className="flex items-center gap-2">
-                <div
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                    isConnected
-                      ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                      : "bg-amber-100 text-amber-700 border border-amber-200"
-                  }`}
-                >
-                  {isConnected ? "🟢 Conectado" : "🟡 Desconectado"}
+                                        <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200">
+                    🏢 Hotmart Analytics
+                  </div>
+                  <div
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                      isConnected
+                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                        : "bg-amber-100 text-amber-700 border border-amber-200"
+                    }`}
+                  >
+                    {isConnected ? "🟢 Conectado" : "🟡 Desconectado"}
+                  </div>
+                  <OpenAIStatus />
+                  {isConnected && (
+                    <Button
+                      onClick={handleLogout}
+                      variant="outline"
+                      size="sm"
+                      className="px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:text-red-800 transition-all"
+                    >
+                      <LogOut className="w-3 h-3 mr-1" />
+                      Sair
+                    </Button>
+                  )}
                 </div>
-                <OpenAIStatus />
-              </div>
             </div>
           </div>
         </div>
@@ -216,7 +338,7 @@ const Dashboard = () => {
         <div className="mx-auto px-3 py-2 h-full">
           {!isConnected ? (
             <div className="h-full flex items-center justify-center">
-              <div className="w-full max-w-lg">
+              <div className="w-full max-w-xxl">
                 <JiraConnector onConnect={handleJiraConnect} />
               </div>
             </div>
@@ -301,7 +423,7 @@ const Dashboard = () => {
                       </TabsContent>
 
                       <TabsContent value="comparison" className="h-full m-0 p-3">
-                        <LabelComparison data={filteredData} />
+                        <LabelComparison data={filteredData} projectKey={projectKey} />
                       </TabsContent>
                     </div>
                   </Tabs>
