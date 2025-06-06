@@ -156,13 +156,24 @@ docker-compose exec app-dev sh
 ### Build e Deploy
 
 ```bash
-# Rebuild das imagens
+# Build sem cache (recomendado)
 make build
-docker-compose build --no-cache
+docker-compose build --no-cache --pull
+
+# Build com rebuild completo
+make build-fresh
+docker-compose build --no-cache --pull --force-rm
 
 # Atualizar imagens base
 make pull
 docker-compose pull
+
+# Limpar cache do Docker
+make clean-cache
+docker builder prune -f
+
+# Build direto sem cache
+docker-compose build --no-cache --pull --force-rm app
 ```
 
 ## 🔧 Configuração Avançada
@@ -244,6 +255,48 @@ docker stats
 
 # Logs de performance
 make logs-prod | grep -E "(GET|POST|PUT|DELETE)"
+```
+
+## 🧹 Gerenciamento de Cache
+
+### Limpar Cache do Docker
+
+O Docker usa cache para acelerar builds, mas às vezes você precisa de um build limpo:
+
+```bash
+# Limpar apenas cache de build
+make clean-cache
+
+# Limpar cache específico e rebuild
+make clean-cache && make build-fresh
+
+# Build direto sem cache
+docker-compose build --no-cache --pull --force-rm app
+
+# Comandos Docker diretos
+docker builder prune -f                    # Limpa cache de build
+docker system prune -f                     # Limpa containers/networks parados
+docker system prune -a -f                  # Limpa tudo (imagens não usadas)
+docker system prune -a -f --volumes        # Limpa tudo incluindo volumes
+```
+
+### Workflow Recomendado para Build Limpo
+
+```bash
+# 1. Parar containers
+make stop
+
+# 2. Limpar tudo
+make clean-all
+
+# 3. Limpar cache
+make clean-cache
+
+# 4. Build fresh
+make build-fresh
+
+# 5. Iniciar
+make dev
 ```
 
 ## 🐛 Troubleshooting

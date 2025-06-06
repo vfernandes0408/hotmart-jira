@@ -24,10 +24,15 @@ help:
 	@echo "$(YELLOW)Comandos disponíveis:$(NC)"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-## Constrói as imagens Docker
+## Constrói as imagens Docker sem cache
 build:
-	@echo "$(BLUE)Construindo imagens Docker...$(NC)"
-	$(DOCKER_COMPOSE) build --no-cache
+	@echo "$(BLUE)Construindo imagens Docker sem cache...$(NC)"
+	$(DOCKER_COMPOSE) build --no-cache --pull
+
+## Constrói forçando rebuild completo
+build-fresh:
+	@echo "$(BLUE)Construindo com rebuild completo...$(NC)"
+	$(DOCKER_COMPOSE) build --no-cache --pull --force-rm
 
 ## Inicia a aplicação
 dev:
@@ -64,6 +69,22 @@ clean:
 clean-all: clean
 	@echo "$(RED)Removendo imagens Docker...$(NC)"
 	$(DOCKER) rmi $$($(DOCKER) images -q --filter=reference="$(APP_NAME)*") 2>/dev/null || true
+
+## Limpa cache do Docker build
+clean-cache:
+	@echo "$(RED)Limpando cache do Docker build...$(NC)"
+	$(DOCKER) builder prune -f
+
+## Limpa tudo do Docker (CUIDADO!)
+clean-docker:
+	@echo "$(RED)Limpando tudo do Docker - containers, imagens, volumes, cache...$(NC)"
+	@read -p "Tem certeza? Esta ação é irreversível [y/N]: " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		$(DOCKER) system prune -a -f --volumes; \
+		$(DOCKER) builder prune -a -f; \
+	else \
+		echo "Operação cancelada."; \
+	fi
 
 ## Exibe logs dos containers
 logs:
