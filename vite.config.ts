@@ -8,12 +8,22 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8888,
+    allowedHosts: [
+      "hotmart-hotmartjira-dm4rdw-c006a0-69-62-89-150.traefik.me",
+      "hotmart.vmanager.app",
+    ],
+    proxy: {
+      "/api/jira": {
+        target: "https://hotmart.atlassian.net",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/jira/, ""),
+        secure: true,
+      },
+    },
   },
-  plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger()].filter(
+    Boolean
+  ),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

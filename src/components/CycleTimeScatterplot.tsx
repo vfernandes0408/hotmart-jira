@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from 'recharts';
 import { Clock, TrendingUp, BarChart3 } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
 
@@ -11,56 +11,99 @@ interface CycleTimeScatterplotProps {
 }
 
 const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  
-  // Cores para diferentes categorias
-  const categoryColors = {
-    'Frontend': '#3B82F6',
-    'Backend': '#10B981', 
-    'DevOps': '#F59E0B',
-    'Design': '#8B5CF6',
-    'QA': '#EF4444',
-    'all': '#6B7280'
-  };
+  const [xAxisMode, setXAxisMode] = useState<'storyPoints' | 'sequence'>('storyPoints');
 
   // Filtrar e preparar dados para o gráfico
   const chartData = useMemo(() => {
-    let filteredData = data.filter(item => item.resolved); // Apenas issues resolvidos
+    // Filtrar dados válidos primeiro
+    const filteredData = data.filter(item => {
+      // Verificar se é um objeto válido do Jira
+      if (!item || typeof item !== 'object') return false;
+      if (!item.id || typeof item.id !== 'string') return false;
+      if (!item.resolved) return false;
+      
+      // Verificar se cycleTime é um número válido
+      const cycleTime = Number(item.cycleTime);
+      if (isNaN(cycleTime) || cycleTime < 0) return false;
+      
+      return true;
+    });
     
-    if (selectedCategory !== 'all') {
-      filteredData = filteredData.filter(item => item.category === selectedCategory);
-    }
+    // Ordenar por data de criação para ter sequência temporal
+    filteredData.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
     
-    return filteredData.map(item => ({
-      x: item.storyPoints || 1,
-      y: item.cycleTime,
-      category: item.category,
-      issueType: item.issueType,
-      id: item.id,
-      summary: item.summary
-    }));
-  }, [data, selectedCategory]);
+    // Calcular percentis de cycle time para determinar cores
+    const cycleTimes = filteredData.map(item => Number(item.cycleTime) || 0);
+    const sortedCycleTimes = [...cycleTimes].sort((a, b) => a - b);
+    const p50 = sortedCycleTimes[Math.floor(sortedCycleTimes.length * 0.5)];
+    const p75 = sortedCycleTimes[Math.floor(sortedCycleTimes.length * 0.75)];
+    const p90 = sortedCycleTimes[Math.floor(sortedCycleTimes.length * 0.90)];
+    
+    return filteredData.map((item, index) => {
+      // Garantir que todos os valores são seguros
+      const storyPoints = Number(item.storyPoints) || 1;
+      const cycleTime = Number(item.cycleTime) || 0;
+      
+      // Converter data de resolução para timestamp para usar no eixo X
+      const resolvedDate = new Date(item.resolved).getTime();
+      
+      // Determinar cor baseada nos percentis de cycle time
+      const color = cycleTime <= p50 ? '#10B981' : // Verde para P50 ou menos
+                   cycleTime <= p75 ? '#F59E0B' : // Amarelo para P75 ou menos
+                   cycleTime <= p90 ? '#EF4444' : // Vermelho para P90 ou menos
+                   '#7C2D12'; // Marrom escuro para acima de P90
+      
+      return {
+        x: resolvedDate, // Data de resolução no eixo X
+        y: cycleTime, // Cycle Time no eixo Y para as linhas de tendência
+        cycleTime: cycleTime, // Cycle time original para tooltip
+        storyPoints: storyPoints, // Story points original para tooltip
+        sequenceIndex: index + 1, // Índice sequencial
+        issueType: String(item.issueType || 'Unknown'),
+        id: String(item.id),
+        summary: String(item.summary || 'Sem título'),
+        created: item.created,
+        resolved: item.resolved,
+        resolvedFormatted: new Date(item.resolved).toLocaleDateString('pt-BR'),
+        color: color
+      };
+    });
+  }, [data, xAxisMode]);
 
-  // Calcular estatísticas
+  // Calcular estatísticas e informações de data
   const statistics = useMemo(() => {
     if (chartData.length === 0) return null;
     
-    const cycleTimes = chartData.map(item => item.y);
+    const cycleTimes = chartData.map(item => item.cycleTime);
     const avg = cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length;
     const sorted = [...cycleTimes].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-    const p85 = sorted[Math.floor(sorted.length * 0.85)];
     
-    return { avg: avg.toFixed(1), median, p85 };
+    // Calcular percentis de cycle time
+    const p50 = sorted[Math.floor(sorted.length * 0.5)]; // Mediana
+    const p75 = sorted[Math.floor(sorted.length * 0.75)];
+    const p85 = sorted[Math.floor(sorted.length * 0.85)];
+    const p90 = sorted[Math.floor(sorted.length * 0.90)];
+    
+    // Calcular range de datas
+    const dates = chartData.map(item => item.x);
+    const minDate = Math.min(...dates);
+    const maxDate = Math.max(...dates);
+    
+    return { 
+      avg: avg.toFixed(1), 
+      p50,
+      p75, 
+      p85,
+      p90,
+      dateRange: {
+        start: new Date(minDate).toLocaleDateString('pt-BR'),
+        end: new Date(maxDate).toLocaleDateString('pt-BR')
+      }
+    };
   }, [chartData]);
 
-  // Obter categorias únicas
-  const categories = useMemo(() => {
-    const unique = [...new Set(data.map(item => item.category))];
-    return ['all', ...unique];
-  }, [data]);
-
-  const CustomTooltip = ({ active, payload }: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -68,10 +111,12 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
           <p className="font-semibold text-gray-900">{data.id}</p>
           <p className="text-sm text-gray-600 mb-2">{data.summary}</p>
           <div className="space-y-1 text-sm">
-            <p><span className="font-medium">Story Points:</span> {data.x}</p>
-            <p><span className="font-medium">Cycle Time:</span> {data.y} dias</p>
-            <p><span className="font-medium">Categoria:</span> {data.category}</p>
+            <p><span className="font-medium">Story Points:</span> {data.storyPoints}</p>
+            <p><span className="font-medium">Cycle Time:</span> {data.cycleTime} dias</p>
             <p><span className="font-medium">Tipo:</span> {data.issueType}</p>
+            <p><span className="font-medium">Sequência:</span> #{data.sequenceIndex}</p>
+            <p><span className="font-medium">Criado:</span> {new Date(data.created).toLocaleDateString('pt-BR')}</p>
+            <p><span className="font-medium">Resolvido:</span> {data.resolvedFormatted}</p>
           </div>
         </div>
       );
@@ -94,39 +139,49 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
           </div>
         </div>
         
-        {/* Filtros de categoria */}
-        <div className="flex flex-wrap gap-2 mt-4">
-          {categories.map(category => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
-                selectedCategory === category
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {category === 'all' ? 'Todas' : category}
-            </button>
-          ))}
-        </div>
+
       </CardHeader>
       
       <CardContent>
         {/* Estatísticas */}
         {statistics && (
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-4 mb-4">
             <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
               <div className="text-2xl font-bold text-blue-700">{statistics.avg}</div>
-              <div className="text-sm text-blue-600">Média (dias)</div>
+              <div className="text-sm text-blue-600">Cycle Time Médio (dias)</div>
             </div>
             <div className="text-center p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-              <div className="text-2xl font-bold text-green-700">{statistics.median}</div>
-              <div className="text-sm text-green-600">Mediana (dias)</div>
+              <div className="text-lg font-bold text-green-700">{statistics.dateRange.start}</div>
+              <div className="text-sm text-green-600">Primeira Resolução</div>
             </div>
             <div className="text-center p-3 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
-              <div className="text-2xl font-bold text-orange-700">{statistics.p85}</div>
-              <div className="text-sm text-orange-600">85º Percentil (dias)</div>
+              <div className="text-lg font-bold text-orange-700">{statistics.dateRange.end}</div>
+              <div className="text-sm text-orange-600">Última Resolução</div>
+            </div>
+          </div>
+        )}
+
+        {/* Legenda dos Percentis */}
+        {statistics && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Legenda - Percentis de Cycle Time:</h4>
+            <div className="flex flex-wrap gap-4 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10B981' }}></div>
+                <span>≤ P50 ({statistics.p50}d)</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#F59E0B' }}></div>
+                <span>P51-P75 ({statistics.p75}d)</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#EF4444' }}></div>
+                <span>P76-P90 ({statistics.p90}d)</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#7C2D12' }}></div>
+                <span>&gt; P90</span>
+              </div>
             </div>
           </div>
         )}
@@ -139,10 +194,12 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
               <XAxis 
                 type="number" 
                 dataKey="x" 
-                name="Story Points"
+                name="Data de Resolução"
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#6B7280', fontSize: 12 }}
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={(value) => new Date(value).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' })}
               />
               <YAxis 
                 type="number" 
@@ -151,27 +208,45 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#6B7280', fontSize: 12 }}
+                domain={[0, 'dataMax + 1']}
               />
               <Tooltip content={<CustomTooltip />} />
               
-              {selectedCategory === 'all' ? (
-                // Mostrar todas as categorias com cores diferentes
-                categories.slice(1).map(category => (
-                  <Scatter
-                    key={category}
-                    name={category}
-                    data={chartData.filter(item => item.category === category)}
-                    fill={categoryColors[category as keyof typeof categoryColors]}
+              {/* Linhas de referência dos percentis */}
+              {statistics && (
+                <>
+                  <ReferenceLine 
+                    y={statistics.p50} 
+                    stroke="#10B981" 
+                    strokeDasharray="5 5" 
+                    strokeWidth={2}
+                    label={{ value: `P50: ${statistics.p50}d`, position: "top", fill: "#10B981", fontSize: 12 }}
                   />
-                ))
-              ) : (
-                // Mostrar apenas a categoria selecionada
-                <Scatter
-                  name={selectedCategory}
-                  data={chartData}
-                  fill={categoryColors[selectedCategory as keyof typeof categoryColors]}
-                />
+                  <ReferenceLine 
+                    y={statistics.p75} 
+                    stroke="#F59E0B" 
+                    strokeDasharray="5 5" 
+                    strokeWidth={2}
+                    label={{ value: `P75: ${statistics.p75}d`, position: "top", fill: "#F59E0B", fontSize: 12 }}
+                  />
+                  <ReferenceLine 
+                    y={statistics.p90} 
+                    stroke="#EF4444" 
+                    strokeDasharray="5 5" 
+                    strokeWidth={2}
+                    label={{ value: `P90: ${statistics.p90}d`, position: "top", fill: "#EF4444", fontSize: 12 }}
+                  />
+                </>
               )}
+              
+              <Scatter
+                name="Issues"
+                data={chartData}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </div>

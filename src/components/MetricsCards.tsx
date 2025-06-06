@@ -115,28 +115,6 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
 
   return (
     <div className="space-y-4">
-      {/* Categorias disponíveis */}
-      {metrics.categories.length > 0 && (
-        <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Tag className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Categorias disponíveis:</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {metrics.categories.map((category, index) => (
-                <span 
-                  key={index}
-                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                >
-                  {category}
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Cards de métricas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {metricsConfig.map((metric, index) => {

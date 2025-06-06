@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install git for potential dependencies
+RUN apk add --no-cache git
+
+# Copy package.json
+COPY package.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 8888
+
+# Start development server
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"] 
