@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,6 +12,8 @@ import JiraConnector from './JiraConnector';
 import CycleTimeScatterplot from './CycleTimeScatterplot';
 import MetricsCards from './MetricsCards';
 import FiltersPanel from './FiltersPanel';
+import TrendChart from './TrendChart';
+import PerformanceChart from './PerformanceChart';
 
 const Dashboard = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -143,35 +146,11 @@ const Dashboard = () => {
                   </TabsContent>
                   
                   <TabsContent value="trends" className="space-y-4">
-                    <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <TrendingUp className="w-5 h-5 text-blue-600" />
-                          Análise de Tendências
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="h-96 flex items-center justify-center text-muted-foreground">
-                          Em desenvolvimento - Gráficos de tendência serão implementados aqui
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <TrendChart data={filteredData} />
                   </TabsContent>
                   
                   <TabsContent value="performance" className="space-y-4">
-                    <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Target className="w-5 h-5 text-green-600" />
-                          Métricas de Performance
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="h-96 flex items-center justify-center text-muted-foreground">
-                          Em desenvolvimento - Métricas de performance serão implementadas aqui
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <PerformanceChart data={filteredData} />
                   </TabsContent>
                 </Tabs>
               </div>
