@@ -11,9 +11,8 @@ Este guia explica como usar Docker para executar a aplicação Jira Analytics Da
 ## 🏗️ Estrutura dos Arquivos
 
 ```
-├── Dockerfile           # Multi-stage build (development + production)
+├── Dockerfile           # Configuração do container de desenvolvimento
 ├── docker-compose.yml   # Orquestração dos containers
-├── nginx.conf          # Configuração do Nginx para produção
 ├── .dockerignore       # Arquivos ignorados no build
 ├── Makefile            # Comandos utilitários
 └── README-Docker.md    # Este arquivo
@@ -40,74 +39,44 @@ make prod
 ### Usando Docker Compose Diretamente
 
 ```bash
-# Desenvolvimento
-docker-compose up app-dev
+# Iniciar aplicação
+docker-compose up app
 
-# Produção
-docker-compose up app-prod
+# Iniciar em background
+docker-compose up -d app
 ```
 
-## 🛠️ Ambientes
+## 🛠️ Configuração
 
-### 🔧 Desenvolvimento
+### 🔧 Aplicação de Desenvolvimento
 
 **Características:**
 - Hot reload ativado
 - Volume bind para código fonte
-- Porta: `5173`
+- Porta: `8888`
 - Node.js com Vite dev server
+- Desenvolvimento e build em um só container
 
 **Comandos:**
 ```bash
 # Iniciar em foreground
 make dev
 # ou
-docker-compose up app-dev
+docker-compose up app
 
 # Iniciar em background
 make dev-d
 # ou
-docker-compose up -d app-dev
+docker-compose up -d app
 
 # Ver logs
-make logs-dev
+make logs
 
 # Acessar shell do container
-make shell-dev
+make shell
 ```
 
-**Acesso:** http://localhost:5173
-
-### 🚀 Produção
-
-**Características:**
-- Build otimizado
-- Servido via Nginx
-- Gzip compression
-- Cache headers
-- Health checks
-- Porta: `80`
-
-**Comandos:**
-```bash
-# Iniciar em foreground
-make prod
-# ou
-docker-compose up app-prod
-
-# Iniciar em background
-make prod-d
-# ou
-docker-compose up -d app-prod
-
-# Ver logs
-make logs-prod
-
-# Verificar saúde
-curl http://localhost/health
-```
-
-**Acesso:** http://localhost
+**Acesso:** http://localhost:8888
 
 ## 📊 Monitoramento
 
