@@ -54,24 +54,7 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
     onFiltersChange(newFilters);
   };
 
-  const handleAssigneeChange = (assignee: string, checked: boolean) => {
-    const currentAssignees = Array.isArray(filters.assignee) 
-      ? filters.assignee 
-      : filters.assignee ? [filters.assignee] : [];
-    
-    let newAssignees: string[];
-    if (checked) {
-      newAssignees = [...currentAssignees, assignee];
-    } else {
-      newAssignees = currentAssignees.filter(a => a !== assignee);
-    }
-    
-    const newFilters = {
-      ...filters,
-      assignee: newAssignees.length === 0 ? '' : newAssignees
-    };
-    onFiltersChange(newFilters);
-  };
+
 
   const handleDateRangeChange = (key: string, value: string) => {
     const newFilters = {
@@ -96,7 +79,7 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
   };
 
   const activeFiltersCount = Object.entries(filters).filter(([key, value]) => {
-    if (key === 'issueType' || key === 'assignee') {
+    if (key === 'issueType') {
       return Array.isArray(value) ? value.length > 0 : !!value;
     }
     return value && (typeof value === 'string' ? value : Object.values(value).some(v => v));

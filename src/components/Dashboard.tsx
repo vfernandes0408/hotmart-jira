@@ -20,6 +20,8 @@ import {
   Brain,
   Save,
   List,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import JiraConnector from "./JiraConnector";
 import CycleTimeScatterplot from "./CycleTimeScatterplot";
