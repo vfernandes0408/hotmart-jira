@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calendar, Filter, RotateCcw } from 'lucide-react';
+import { Calendar, Filter, RotateCcw, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface FiltersPanelProps {
@@ -21,6 +21,9 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
   const uniqueStatuses = [...new Set(data.map(item => item.status))];
   const uniqueAssignees = [...new Set(data.map(item => item.assignee))];
   const uniqueCategories = [...new Set(data.map(item => item.category))];
+  
+  // Extrair labels únicos dos dados
+  const uniqueLabels = [...new Set(data.flatMap(item => item.labels || []))];
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = {
@@ -48,6 +51,7 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
       status: '',
       assignee: '',
       category: '',
+      labels: '',
       dateRange: { start: '', end: '' }
     });
   };
@@ -116,6 +120,25 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
               <SelectItem value="all">Todas as categorias</SelectItem>
               {uniqueCategories.map(category => (
                 <SelectItem key={category} value={category}>{category}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Labels */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <Tag className="w-4 h-4" />
+            Labels
+          </Label>
+          <Select value={filters.labels || 'all'} onValueChange={(value) => handleFilterChange('labels', value)}>
+            <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
+              <SelectValue placeholder="Selecionar label" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as labels</SelectItem>
+              {uniqueLabels.map(label => (
+                <SelectItem key={label} value={label}>{label}</SelectItem>
               ))}
             </SelectContent>
           </Select>

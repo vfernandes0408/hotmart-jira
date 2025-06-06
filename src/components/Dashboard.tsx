@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,6 +24,7 @@ const Dashboard = () => {
     status: '',
     assignee: '',
     category: '',
+    labels: '',
     dateRange: { start: '', end: '' }
   });
 
@@ -58,6 +58,13 @@ const Dashboard = () => {
     
     if (newFilters.category) {
       filtered = filtered.filter((item: any) => item.category === newFilters.category);
+    }
+    
+    if (newFilters.labels) {
+      filtered = filtered.filter((item: any) => {
+        if (!item.labels || !Array.isArray(item.labels)) return false;
+        return item.labels.includes(newFilters.labels);
+      });
     }
     
     // Apply date range filter
