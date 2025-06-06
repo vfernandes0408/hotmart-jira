@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +11,8 @@ interface JiraConnectorProps {
   onConnect: (data: any) => void;
 }
 
+const STORAGE_KEY = 'jira_credentials';
+
 const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
   const [credentials, setCredentials] = useState({
     serverUrl: '',
@@ -21,11 +22,36 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
   });
   const [isConnecting, setIsConnecting] = useState(false);
 
+  // Carregar dados salvos do localStorage ao montar o componente
+  useEffect(() => {
+    try {
+      const savedCredentials = localStorage.getItem(STORAGE_KEY);
+      if (savedCredentials) {
+        const parsed = JSON.parse(savedCredentials);
+        setCredentials(parsed);
+        toast.success('Credenciais carregadas do armazenamento local');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar credenciais do localStorage:', error);
+    }
+  }, []);
+
+  // Salvar credenciais no localStorage sempre que mudarem
+  const saveCredentials = (newCredentials: typeof credentials) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newCredentials));
+    } catch (error) {
+      console.error('Erro ao salvar credenciais no localStorage:', error);
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
-    setCredentials(prev => ({
-      ...prev,
+    const newCredentials = {
+      ...credentials,
       [field]: value
-    }));
+    };
+    setCredentials(newCredentials);
+    saveCredentials(newCredentials);
   };
 
   const generateMockData = () => {
