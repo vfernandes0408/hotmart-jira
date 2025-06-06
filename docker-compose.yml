@@ -7,13 +7,13 @@ services:
       target: development
     container_name: jira-analytics-dev
     ports:
-      - "5173:5173"
+      - "8080:8080"
     volumes:
       - .:/app
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:5173
+      - VITE_API_URL=http://localhost:8080
     networks:
       - jira-network
     restart: unless-stopped

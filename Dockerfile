@@ -3,26 +3,20 @@
 # Stage 1: Build da aplicação
 FROM node:18-alpine AS builder
 
-# Instalar dependências do sistema se necessário
-RUN apk add --no-cache git
-
 # Definir diretório de trabalho
 WORKDIR /app
 
 # Copiar arquivos de dependências
 COPY package*.json ./
-COPY yarn.lock* ./
 
-# Instalar yarn globalmente e dependências
-RUN npm install -g yarn && \
-    if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
-    else npm ci; fi
+# Instalar todas as dependências (incluindo devDependencies para o build)
+RUN npm ci
 
 # Copiar código fonte
 COPY . .
 
 # Build da aplicação para produção
-RUN if [ -f yarn.lock ]; then yarn build; else npm run build; fi
+RUN npm run build
 
 # Stage 2: Servir com Nginx
 FROM nginx:alpine AS production
@@ -46,16 +40,15 @@ WORKDIR /app
 
 # Copiar arquivos de dependências
 COPY package*.json ./
-COPY yarn.lock* ./
 
 # Instalar todas as dependências (incluindo devDependencies)
-RUN npm ci --silent
+RUN npm ci
 
 # Copiar código fonte
 COPY . .
 
 # Expor porta do dev server
-EXPOSE 5173
+EXPOSE 8080
 
 # Comando para desenvolvimento
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"] 
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080"] 
