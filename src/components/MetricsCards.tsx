@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, TrendingUp, Target, Activity, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Clock, TrendingUp, Target, Activity, CheckCircle2, AlertCircle, Tag } from 'lucide-react';
 
 interface MetricsCardsProps {
   data: any[];
@@ -16,7 +16,8 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
         avgCycleTime: 0,
         avgLeadTime: 0,
         throughput: 0,
-        completionRate: 0
+        completionRate: 0,
+        categories: []
       };
     }
 
@@ -40,13 +41,17 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       item.resolved && new Date(item.resolved) >= thirtyDaysAgo
     );
 
+    // Obter categorias únicas
+    const categories = [...new Set(data.map(item => item.category).filter(Boolean))];
+
     return {
       totalIssues: data.length,
       completedIssues: completedIssues.length,
       avgCycleTime: avgCycleTime,
       avgLeadTime: avgLeadTime,
       throughput: recentCompletions.length,
-      completionRate: data.length > 0 ? (completedIssues.length / data.length) * 100 : 0
+      completionRate: data.length > 0 ? (completedIssues.length / data.length) * 100 : 0,
+      categories: categories
     };
   }, [data]);
 
@@ -108,38 +113,63 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-      {metricsConfig.map((metric, index) => {
-        const Icon = metric.icon;
-        
-        return (
-          <Card key={index} className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-xl bg-gradient-to-br ${metric.bgColor}`}>
-                  <Icon className={`w-6 h-6 ${metric.textColor}`} />
+    <div className="space-y-4">
+      {/* Categorias disponíveis */}
+      {metrics.categories.length > 0 && (
+        <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Tag className="w-4 h-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">Categorias disponíveis:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {metrics.categories.map((category, index) => (
+                <span 
+                  key={index}
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {category}
+                </span>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Cards de métricas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {metricsConfig.map((metric, index) => {
+          const Icon = metric.icon;
+          
+          return (
+            <Card key={index} className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`p-3 rounded-xl bg-gradient-to-br ${metric.bgColor}`}>
+                    <Icon className={`w-6 h-6 ${metric.textColor}`} />
+                  </div>
+                  <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${metric.color}`} />
                 </div>
-                <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${metric.color}`} />
-              </div>
-              
-              <div className="space-y-1">
-                <p className="text-2xl font-bold text-foreground">
-                  {metric.format(metric.value)}
-                </p>
-                <p className="text-sm text-muted-foreground font-medium">
-                  {metric.title}
-                </p>
-              </div>
-              
-              {/* Indicador de tendência (placeholder) */}
-              <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
-                <div className="w-1 h-1 bg-green-500 rounded-full" />
-                <span>vs. período anterior</span>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+                
+                <div className="space-y-1">
+                  <p className="text-2xl font-bold text-foreground">
+                    {metric.format(metric.value)}
+                  </p>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    {metric.title}
+                  </p>
+                </div>
+                
+                {/* Indicador de tendência (placeholder) */}
+                <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="w-1 h-1 bg-green-500 rounded-full" />
+                  <span>vs. período anterior</span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,6 +21,7 @@ const Dashboard = () => {
     issueType: '',
     status: '',
     assignee: '',
+    category: '',
     dateRange: { start: '', end: '' }
   });
 
@@ -33,7 +33,8 @@ const Dashboard = () => {
 
   const handleFiltersChange = (newFilters: any) => {
     setFilters(newFilters);
-    // Apply filters to data
+    
+    // Apply all filters to data
     let filtered = jiraData;
     
     if (newFilters.project) {
@@ -42,6 +43,34 @@ const Dashboard = () => {
     
     if (newFilters.issueType) {
       filtered = filtered.filter((item: any) => item.issueType === newFilters.issueType);
+    }
+    
+    if (newFilters.status) {
+      filtered = filtered.filter((item: any) => item.status === newFilters.status);
+    }
+    
+    if (newFilters.assignee) {
+      filtered = filtered.filter((item: any) => item.assignee === newFilters.assignee);
+    }
+    
+    if (newFilters.category) {
+      filtered = filtered.filter((item: any) => item.category === newFilters.category);
+    }
+    
+    // Apply date range filter
+    if (newFilters.dateRange?.start || newFilters.dateRange?.end) {
+      filtered = filtered.filter((item: any) => {
+        if (!item.created) return false;
+        
+        const itemDate = new Date(item.created);
+        const startDate = newFilters.dateRange.start ? new Date(newFilters.dateRange.start) : null;
+        const endDate = newFilters.dateRange.end ? new Date(newFilters.dateRange.end) : null;
+        
+        if (startDate && itemDate < startDate) return false;
+        if (endDate && itemDate > endDate) return false;
+        
+        return true;
+      });
     }
     
     setFilteredData(filtered);
