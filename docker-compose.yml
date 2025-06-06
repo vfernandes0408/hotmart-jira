@@ -1,66 +1,19 @@
 services:
-  # Serviço para desenvolvimento
-  app-dev:
+  # Application service
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development
-    container_name: jira-analytics-dev
     ports:
-      - "8888:8888"
+      - "8888:8888" # Default Vite port
     volumes:
       - .:/app
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:8888
     networks:
-      - jira-network
-    restart: unless-stopped
-    stdin_open: true
-    tty: true
-
-  # Serviço para produção
-  app-prod:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    container_name: jira-analytics-prod
-    ports:
-      - "8888:8888"
-      - "443:443"
-    environment:
-      - NODE_ENV=production
-    networks:
-      - jira-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Nginx reverso proxy (opcional para produção avançada)
-  nginx-proxy:
-    image: nginx:alpine
-    container_name: jira-nginx-proxy
-    ports:
-      - "8888:8888"
-    volumes:
-      - ./nginx-proxy.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - app-prod
-    networks:
-      - jira-network
-    restart: unless-stopped
-    profiles:
-      - proxy
+      - app-network
 
 networks:
-  jira-network:
+  app-network:
     driver: bridge
-
-volumes:
-  node_modules: 
