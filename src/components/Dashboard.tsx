@@ -315,13 +315,14 @@ const Dashboard = () => {
       <header className="flex-shrink-0 border-b border-zinc-200/50 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto px-3 lg:px-6 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <svg
                 width="128"
                 height="37.682"
                 viewBox="0 0 128 37.682"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                className="w-24 sm:w-32"
               >
                 <path
                   d="M33.005 30.23V11.959c0 -0.106 0.084 -0.191 0.187 -0.191h3.708c0.103 0 0.187 0.086 0.187 0.191v6.902c0.659 -1.172 1.952 -2.239 4.03 -2.239 3.321 0 4.563 2.16 4.563 5.154v8.451c0 0.106 -0.083 0.191 -0.187 0.191h-3.683a0.188 0.188 0 0 1 -0.187 -0.191V22.844c0 -1.823 -0.558 -2.889 -2.104 -2.889 -1.546 0 -2.458 1.093 -2.458 3.071v7.203c0 0.106 -0.083 0.191 -0.186 0.191h-3.683a0.188 0.188 0 0 1 -0.187 -0.191z"
@@ -430,7 +431,7 @@ const Dashboard = () => {
               </div>
 
               {/* Main Dashboard Content - Responsive flex layout */}
-              <div className="flex-1 flex gap-3 min-h-0">
+              <div className="flex-1 flex gap-3 min-h-0 overflow-hidden">
                 {/* Filters Panel - Collapsible sidebar */}
                 <div className={`flex flex-col transition-all duration-300 ${isSidebarVisible ? 'w-full md:w-80' : 'w-0'}`}>
                   <div className={`bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm h-full overflow-hidden transition-all duration-300 ${isSidebarVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -451,7 +452,7 @@ const Dashboard = () => {
                         </Button>
                       </div>
                     </div>
-                    <div className="flex-1 overflow-auto p-3">
+                    <div className="h-[calc(100%-3rem)] overflow-hidden">
                       <FiltersPanel
                         data={jiraData}
                         filters={filters}
@@ -474,16 +475,16 @@ const Dashboard = () => {
                       >
                         <ChevronRight className="w-4 h-4" />
                       </Button>
-                                             {/* Indicador de filtros ativos */}
-                       {(filters.project || 
-                         (Array.isArray(filters.issueType) ? filters.issueType.length > 0 : filters.issueType) ||
-                         filters.status || 
-                         (Array.isArray(filters.assignee) ? filters.assignee.length > 0 : filters.assignee) ||
-                         filters.labels || 
-                         filters.dateRange.start || 
-                         filters.dateRange.end) && (
-                         <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
-                       )}
+                      {/* Indicador de filtros ativos */}
+                      {(filters.project || 
+                        (Array.isArray(filters.issueType) ? filters.issueType.length > 0 : filters.issueType) ||
+                        filters.status || 
+                        (Array.isArray(filters.assignee) ? filters.assignee.length > 0 : filters.assignee) ||
+                        filters.labels || 
+                        filters.dateRange.start || 
+                        filters.dateRange.end) && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -545,25 +546,25 @@ const Dashboard = () => {
                     <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden">
                       <TabsContent
                         value="scatterplot"
-                        className="h-full m-0 p-3"
+                        className="h-full m-0 p-3 overflow-auto"
                       >
                         <CycleTimeScatterplot data={filteredData} />
                       </TabsContent>
 
-                      <TabsContent value="trends" className="h-full m-0 p-3">
+                      <TabsContent value="trends" className="h-full m-0 p-3 overflow-auto">
                         <TrendChart data={filteredData} />
                       </TabsContent>
 
                       <TabsContent
                         value="performance"
-                        className="h-full m-0 p-3"
+                        className="h-full m-0 p-3 overflow-auto"
                       >
                         <PerformanceChart data={filteredData} />
                       </TabsContent>
 
                       <TabsContent
                         value="comparison"
-                        className="h-full m-0 p-3"
+                        className="h-full m-0 p-3 overflow-auto"
                       >
                         <LabelComparison
                           data={filteredData}
@@ -573,14 +574,14 @@ const Dashboard = () => {
 
                       <TabsContent
                         value="assignee-comparison"
-                        className="h-full m-0 p-3"
+                        className="h-full m-0 p-3 overflow-auto"
                       >
                         <AssigneeComparison data={filteredData} />
                       </TabsContent>
 
                       <TabsContent
                         value="tickets"
-                        className="h-full m-0 p-3"
+                        className="h-full m-0 p-3 overflow-auto"
                       >
                         <TicketList data={filteredData} projectKey={projectKey} />
                       </TabsContent>
