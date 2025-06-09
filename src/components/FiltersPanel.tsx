@@ -134,155 +134,157 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
             </Button>
             {activeFiltersCount > 0 && (
               <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
-                {activeFiltersCount} ativo{activeFiltersCount > 1 ? 's' : ''}
+                {activeFiltersCount} ativo{activeFiltersCount !== 1 ? 's' : ''}
               </Badge>
             )}
           </div>
         </div>
       </div>
       {/* Conteúdo scrollável dos filtros */}
-      <CardContent className="flex-1 overflow-y-auto px-4 py-2 space-y-6 divide-y divide-zinc-100">
-        {/* Projeto */}
-        <div className="pt-2 space-y-2">
-          <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Projeto</Label>
-          <Select value={filters.project || 'all'} onValueChange={(value) => handleFilterChange('project', value)}>
-            <SelectTrigger className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500">
-              <SelectValue placeholder="Selecionar projeto" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os projetos</SelectItem>
-              {uniqueProjects.map(project => (
-                <SelectItem key={project} value={project}>{project}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {/* Tipo de Issue */}
-        <div className="pt-2 space-y-2">
-          <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Tipo de Issue</Label>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {uniqueIssueTypes.map(type => {
-              const currentTypes = Array.isArray(filters.issueType) 
-                ? filters.issueType 
-                : filters.issueType ? [filters.issueType] : [];
-              const isChecked = currentTypes.includes(type);
-              return (
-                <div key={type} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`issue-type-${type}`}
-                    checked={isChecked}
-                    onCheckedChange={(checked) => handleIssueTypeChange(type, !!checked)}
-                    className="h-4 w-4"
-                  />
-                  <Label 
-                    htmlFor={`issue-type-${type}`} 
-                    className="text-xs cursor-pointer flex-1"
-                  >
-                    {type}
-                  </Label>
-                </div>
-              );
-            })}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <CardContent className="px-4 py-2 space-y-6 divide-y divide-zinc-100">
+          {/* Projeto */}
+          <div className="pt-2 space-y-2">
+            <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Projeto</Label>
+            <Select value={filters.project || 'all'} onValueChange={(value) => handleFilterChange('project', value)}>
+              <SelectTrigger className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500">
+                <SelectValue placeholder="Selecionar projeto" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                {uniqueProjects.map(project => (
+                  <SelectItem key={project} value={project}>{project}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-        {/* Labels */}
-        <div className="pt-2 space-y-2">
-          <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-2">
-            <Tag className="w-4 h-4" />
-            Labels
-          </Label>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {uniqueLabels.map(label => {
-              const currentLabels = Array.isArray(filters.labels)
-                ? filters.labels
-                : filters.labels ? [filters.labels] : [];
-              const isChecked = currentLabels.includes(label);
-              return (
-                <div key={label} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`label-${label}`}
-                    checked={isChecked}
-                    onCheckedChange={(checked) => handleLabelChange(label, !!checked)}
-                    className="h-4 w-4"
-                  />
-                  <Label
-                    htmlFor={`label-${label}`}
-                    className="text-xs cursor-pointer flex-1"
-                  >
-                    {label}
-                  </Label>
-                </div>
-              );
-            })}
+          {/* Tipo de Issue */}
+          <div className="pt-2 space-y-2">
+            <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Tipo de Issue</Label>
+            <div className="space-y-1 max-h-[200px] overflow-y-auto pr-2">
+              {uniqueIssueTypes.map(type => {
+                const currentTypes = Array.isArray(filters.issueType) 
+                  ? filters.issueType 
+                  : filters.issueType ? [filters.issueType] : [];
+                const isChecked = currentTypes.includes(type);
+                return (
+                  <div key={type} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`issue-type-${type}`}
+                      checked={isChecked}
+                      onCheckedChange={(checked) => handleIssueTypeChange(type, !!checked)}
+                      className="h-4 w-4"
+                    />
+                    <Label 
+                      htmlFor={`issue-type-${type}`} 
+                      className="text-xs cursor-pointer flex-1"
+                    >
+                      {type}
+                    </Label>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-        {/* Status */}
-        <div className="pt-2 space-y-2">
-          <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Status</Label>
-          <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value)}>
-            <SelectTrigger className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500">
-              <SelectValue placeholder="Selecionar status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
-              {uniqueStatuses.map(status => (
-                <SelectItem key={status} value={status}>{status}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {/* Responsável */}
-        <div className="pt-2 space-y-2">
-          <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Responsável</Label>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {uniqueAssignees.map(assignee => {
-              const currentAssignees = Array.isArray(filters.assignee) 
-                ? filters.assignee 
-                : filters.assignee ? [filters.assignee] : [];
-              const isChecked = currentAssignees.includes(assignee);
-              return (
-                <div key={assignee} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`assignee-${assignee}`}
-                    checked={isChecked}
-                    onCheckedChange={(checked) => handleAssigneeChange(assignee, !!checked)}
-                    className="h-4 w-4"
-                  />
-                  <Label 
-                    htmlFor={`assignee-${assignee}`} 
-                    className="text-xs cursor-pointer flex-1"
-                  >
-                    {assignee}
-                  </Label>
-                </div>
-              );
-            })}
+          {/* Labels */}
+          <div className="pt-2 space-y-2">
+            <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-2">
+              <Tag className="w-4 h-4" />
+              Labels
+            </Label>
+            <div className="space-y-1 max-h-[200px] overflow-y-auto pr-2">
+              {uniqueLabels.map(label => {
+                const currentLabels = Array.isArray(filters.labels)
+                  ? filters.labels
+                  : filters.labels ? [filters.labels] : [];
+                const isChecked = currentLabels.includes(label);
+                return (
+                  <div key={label} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`label-${label}`}
+                      checked={isChecked}
+                      onCheckedChange={(checked) => handleLabelChange(label, !!checked)}
+                      className="h-4 w-4"
+                    />
+                    <Label
+                      htmlFor={`label-${label}`}
+                      className="text-xs cursor-pointer flex-1"
+                    >
+                      {label}
+                    </Label>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-        {/* Período */}
-        <div className="pt-2 space-y-2">
-          <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Período
-          </Label>
-          <div className="space-y-1">
-            <Input
-              type="date"
-              placeholder="Data inicial"
-              value={filters.dateRange?.start || ''}
-              onChange={(e) => handleDateRangeChange('start', e.target.value)}
-              className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-            />
-            <Input
-              type="date"
-              placeholder="Data final"
-              value={filters.dateRange?.end || ''}
-              onChange={(e) => handleDateRangeChange('end', e.target.value)}
-              className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-            />
+          {/* Status */}
+          <div className="pt-2 space-y-2">
+            <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Status</Label>
+            <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value)}>
+              <SelectTrigger className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500">
+                <SelectValue placeholder="Selecionar status" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
+                <SelectItem value="all">Todos os status</SelectItem>
+                {uniqueStatuses.map(status => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      </CardContent>
+          {/* Responsável */}
+          <div className="pt-2 space-y-2">
+            <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Responsável</Label>
+            <div className="space-y-1 max-h-[200px] overflow-y-auto pr-2">
+              {uniqueAssignees.map(assignee => {
+                const currentAssignees = Array.isArray(filters.assignee) 
+                  ? filters.assignee 
+                  : filters.assignee ? [filters.assignee] : [];
+                const isChecked = currentAssignees.includes(assignee);
+                return (
+                  <div key={assignee} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`assignee-${assignee}`}
+                      checked={isChecked}
+                      onCheckedChange={(checked) => handleAssigneeChange(assignee, !!checked)}
+                      className="h-4 w-4"
+                    />
+                    <Label 
+                      htmlFor={`assignee-${assignee}`} 
+                      className="text-xs cursor-pointer flex-1"
+                    >
+                      {assignee}
+                    </Label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* Período */}
+          <div className="pt-2 space-y-2">
+            <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Período
+            </Label>
+            <div className="space-y-1">
+              <Input
+                type="date"
+                placeholder="Data inicial"
+                value={filters.dateRange?.start || ''}
+                onChange={(e) => handleDateRangeChange('start', e.target.value)}
+                className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+              />
+              <Input
+                type="date"
+                placeholder="Data final"
+                value={filters.dateRange?.end || ''}
+                onChange={(e) => handleDateRangeChange('end', e.target.value)}
+                className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </div>
       {/* Rodapé com resumo */}
       <div className="px-4 py-3 border-t bg-gray-50 rounded-b-lg">
         <p className="text-xs text-gray-600">
