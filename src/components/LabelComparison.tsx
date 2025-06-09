@@ -392,8 +392,9 @@ Por favor, forneça insights sobre:
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setSelectedLabels1((prev) => [...prev].reverse());
-                    setSelectedLabels2((prev) => [...prev].reverse());
+                    const temp = [...selectedLabels1];
+                    setSelectedLabels1(selectedLabels2);
+                    setSelectedLabels2(temp);
                     setInsights("");
                   }}
                   disabled={selectedLabels1.length === 0 || selectedLabels2.length === 0}

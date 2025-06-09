@@ -25,6 +25,7 @@ import {
   Users,
   RefreshCw,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [jiraData, setJiraData] = useState<JiraIssue[]>([]);
   const [filteredData, setFilteredData] = useState<JiraIssue[]>([]);
   const [projectKey, setProjectKey] = useState<string>("");
@@ -347,6 +349,19 @@ const Dashboard = () => {
     });
   };
 
+  // Monitorar o estado de fetching de todas as queries
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+      const queries = queryClient.getQueryCache().getAll();
+      const isFetching = queries.some(query => query.state.fetchStatus === 'fetching');
+      setIsRefreshing(isFetching);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [queryClient]);
+
   const handleRefreshData = useCallback(async () => {
     try {
       await queryClient.invalidateQueries();
@@ -459,10 +474,20 @@ const Dashboard = () => {
                     onClick={handleRefreshData}
                     variant="outline"
                     size="sm"
-                    className="px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:text-blue-800 transition-all"
+                    disabled={isRefreshing}
+                    className={`px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:text-blue-800 transition-all ${isRefreshing ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    <span className="hidden sm:inline">Atualizar</span>
+                    {isRefreshing ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        <span className="hidden sm:inline">Atualizando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        <span className="hidden sm:inline">Atualizar</span>
+                      </>
+                    )}
                   </Button>
                   <Button
                     onClick={handleLogout}

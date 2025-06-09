@@ -116,30 +116,7 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
   return (
     <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm h-full flex flex-col">
       {/* Topo fixo */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-zinc-100 px-4 pt-4 pb-2 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-blue-600" />
-            <span className="text-lg font-bold tracking-tight">Filtros</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={clearFilters}
-              title="Limpar filtros"
-              className="h-8 w-8 p-0 text-gray-500 hover:bg-gray-100"
-            >
-              <RotateCcw className="w-5 h-5" />
-            </Button>
-            {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
-                {activeFiltersCount} ativo{activeFiltersCount !== 1 ? 's' : ''}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </div>
+
       {/* Conteúdo scrollável dos filtros */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <CardContent className="px-4 py-2 space-y-6 divide-y divide-zinc-100">

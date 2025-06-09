@@ -9,13 +9,33 @@ interface JiraCredentials {
 
 const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
   try {
-    const storyPoints = 
-      apiIssue.fields.customfield_10016 || // Try different custom fields that might contain story points
+    // Helper function to validate and parse story points
+    const parseStoryPoints = (value: unknown): number => {
+      if (typeof value === 'number' && !isNaN(value) && value > 0) {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const parsed = parseFloat(value);
+        if (!isNaN(parsed) && parsed > 0) {
+          return parsed;
+        }
+      }
+      return 0;
+    };
+
+    // Try different custom fields that might contain story points
+    const storyPoints = parseStoryPoints(
+      apiIssue.fields.customfield_10016 ||
       apiIssue.fields.customfield_10004 ||
       apiIssue.fields.customfield_10002 ||
+      apiIssue.fields.customfield_10020 ||
+      apiIssue.fields.customfield_10011 ||
+      apiIssue.fields.customfield_10028 ||
+      apiIssue.fields.customfield_10024 ||
       apiIssue.fields.storypoints ||
       apiIssue.fields.story_points ||
-      0;
+      0
+    );
 
     return {
       id: apiIssue.key,
