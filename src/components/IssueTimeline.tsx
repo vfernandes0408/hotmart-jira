@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { JiraIssue, JiraComment } from '@/types/jira';
+import { JiraIssue, JiraChangelog } from '@/types/jira';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Search, X, MessageSquare, Clock, User, Tag, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Search, X, Clock, User, Tag, AlertCircle, Loader2, RefreshCw, History, ArrowRight, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,9 +12,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { fetchJiraComments } from '@/services/jiraApi';
+import { fetchJiraChangelog } from '@/services/jiraApi';
 import { useJiraCredentials } from '@/hooks/useJiraCredentials';
 import { toast } from 'sonner';
+import StatusTimeline from './StatusTimeline';
+import { calculateCycleTime } from '@/utils/cycleTime';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface IssueTimelineProps {
   data: JiraIssue[];
@@ -24,15 +33,41 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIssue, setSelectedIssue] = useState<JiraIssue | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [comments, setComments] = useState<JiraComment[]>([]);
-  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [changelog, setChangelog] = useState<JiraChangelog[]>([]);
+  const [isLoadingChangelog, setIsLoadingChangelog] = useState(false);
+  const [cycleTimeStartStatus, setCycleTimeStartStatus] = useState('Developing');
   const { credentials } = useJiraCredentials();
+
+  // Get unique statuses from changelog
+  const statusOptions = React.useMemo(() => {
+    const statuses = new Set<string>();
+    changelog.forEach(change => {
+      change.items.forEach(item => {
+        if (item.field === 'status') {
+          if (item.fromString) statuses.add(item.fromString);
+          if (item.toString) statuses.add(item.toString);
+        }
+      });
+    });
+    return Array.from(statuses).sort();
+  }, [changelog]);
+
+  // Update cycleTimeStartStatus when changelog changes
+  React.useEffect(() => {
+    if (statusOptions.length > 0) {
+      // Try to set 'Developing' if available, otherwise use the first status
+      const defaultStatus = statusOptions.includes('Developing') 
+        ? 'Developing' 
+        : statusOptions[0];
+      setCycleTimeStartStatus(defaultStatus);
+    }
+  }, [statusOptions]);
 
   // Filter and sort issues
   const filteredAndSortedIssues = useMemo(() => {
     return [...data]
       .filter(issue => 
-        searchQuery === '' || 
+        searchQuery === 'SCH-5086' || 
         issue.id.toLowerCase().includes(searchQuery.toLowerCase())
       )
       .sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
@@ -50,6 +85,24 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
     }, {} as Record<string, JiraIssue[]>);
   }, [filteredAndSortedIssues]);
 
+  // Load changelog
+  const loadChangelog = async (issueId: string) => {
+    setIsLoadingChangelog(true);
+    try {
+      const fetchedChangelog = await fetchJiraChangelog(issueId, {
+        email: credentials.email,
+        apiToken: credentials.apiToken,
+        serverUrl: credentials.serverUrl,
+      });
+      setChangelog(fetchedChangelog);
+    } catch (error) {
+      toast.error('Erro ao carregar histórico');
+      console.error('Erro ao carregar histórico:', error);
+    } finally {
+      setIsLoadingChangelog(false);
+    }
+  };
+
   // Handle search
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -60,32 +113,14 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
       if (foundIssue) {
         setSelectedIssue(foundIssue);
         setIsDialogOpen(true);
-        await loadComments(foundIssue.id);
+        await loadChangelog(foundIssue.id);
       } else {
         setSelectedIssue(null);
-        setComments([]);
+        setChangelog([]);
       }
     } else {
       setSelectedIssue(null);
-      setComments([]);
-    }
-  };
-
-  // Load comments
-  const loadComments = async (issueId: string) => {
-    setIsLoadingComments(true);
-    try {
-      const fetchedComments = await fetchJiraComments(issueId, {
-        email: credentials.email,
-        apiToken: credentials.apiToken,
-        serverUrl: credentials.serverUrl,
-      });
-      setComments(fetchedComments);
-    } catch (error) {
-      toast.error('Erro ao carregar comentários');
-      console.error('Erro ao carregar comentários:', error);
-    } finally {
-      setIsLoadingComments(false);
+      setChangelog([]);
     }
   };
 
@@ -176,7 +211,7 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
 
       {/* Detailed Ticket Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl w-[90vw]">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Detalhes do Ticket</span>
@@ -205,7 +240,7 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
                     {selectedIssue.status}
                   </span>
                 </div>
-                <p className="text-gray-600">{selectedIssue.summary}</p>
+                <p className="text-gray-600 break-words">{selectedIssue.summary}</p>
               </div>
 
               {/* Details Grid */}
@@ -242,81 +277,107 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
                 </div>
               </div>
 
-              {/* Status History */}
-              {selectedIssue.statusHistory && selectedIssue.statusHistory.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    Histórico de Status
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedIssue.statusHistory.map((history, index) => (
-                      <div key={index} className="text-sm text-gray-600 pl-6 border-l-2 border-gray-200">
-                        <div className="font-medium">{history.status}</div>
-                        <div className="text-xs text-gray-500">
-                          {format(new Date(history.date), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })} por {history.author}
-                        </div>
-                      </div>
-                    ))}
+              {/* Ticket Details */}
+              <div className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {selectedIssue.id}
+                    </h2>
+                    <p className="text-sm text-gray-600 break-words">
+                      {selectedIssue.summary}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`px-2 py-1 rounded-full text-xs ${
+                      selectedIssue.status === 'Done' ? 'bg-green-100 text-green-700' :
+                      selectedIssue.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {selectedIssue.status}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-              )}
 
-              {/* Comments Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    Comentários
-                  </h4>
+                {/* Cycle Time */}
+                {changelog.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Timer className="w-4 h-4" />
+                      <span>Cycle Time:</span>
+                      <Select
+                        value={cycleTimeStartStatus}
+                        onValueChange={setCycleTimeStartStatus}
+                      >
+                        <SelectTrigger className="w-[180px] h-8">
+                          <SelectValue placeholder="Selecione o status inicial" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map(status => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      {(() => {
+                        const cycleTime = calculateCycleTime(changelog, cycleTimeStartStatus);
+                        if (!cycleTime) {
+                          return <span className="text-gray-500">Não disponível</span>;
+                        }
+                        return (
+                          <span className="font-medium">
+                            {cycleTime.days > 0 ? `${cycleTime.days}d ` : ''}
+                            {cycleTime.hours}h
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Ticket History */}
+              <div className="mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-4 h-4 text-gray-500" />
+                  <h3 className="text-sm font-medium text-gray-700">Histórico do Ticket</h3>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    onClick={() => loadComments(selectedIssue.id)}
-                    disabled={isLoadingComments}
+                    className="ml-auto"
+                    onClick={() => loadChangelog(selectedIssue.id)}
+                    disabled={isLoadingChangelog}
                   >
-                    {isLoadingComments ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Carregando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Atualizar
-                      </>
-                    )}
+                    <RefreshCw className={`w-4 h-4 ${isLoadingChangelog ? 'animate-spin' : ''}`} />
                   </Button>
                 </div>
 
-                {isLoadingComments ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                  </div>
-                ) : comments.length > 0 ? (
-                  <div className="space-y-4">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium text-sm">{comment.author.displayName}</span>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {format(new Date(comment.created), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600 whitespace-pre-wrap">
-                          {comment.body}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-gray-500">
-                    Nenhum comentário encontrado.
-                  </div>
-                )}
+                <div className="max-h-[400px] overflow-y-auto">
+                  {isLoadingChangelog ? (
+                    <div className="text-center py-4 text-gray-500">
+                      Carregando histórico...
+                    </div>
+                  ) : changelog.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">
+                      Nenhum histórico encontrado.
+                    </div>
+                  ) : (
+                    <StatusTimeline 
+                      changelog={changelog} 
+                      selectedStatus={cycleTimeStartStatus}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           )}

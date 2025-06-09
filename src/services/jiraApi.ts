@@ -1,4 +1,4 @@
-import { JiraComment } from '@/types/jira';
+import { JiraComment, JiraChangelog } from '@/types/jira';
 
 export const fetchJiraComments = async (
   issueId: string,
@@ -8,56 +8,78 @@ export const fetchJiraComments = async (
     serverUrl: string;
   }
 ): Promise<JiraComment[]> => {
-  const auth = btoa(`${credentials.email}:${credentials.apiToken}`);
-  const url = `${credentials.serverUrl}/rest/api/3/issue/${issueId}/comment`;
-
   try {
-    console.log('Fetching comments from:', url);
-    
-    const response = await fetch(url, {
+    const response = await fetch(`/api/jira/rest/api/3/issue/${issueId}/comment?expand=renderedBody&orderBy=-created`, {
       method: 'GET',
       headers: {
-        Authorization: `Basic ${auth}`,
+        Authorization: `Basic ${btoa(`${credentials.email}:${credentials.apiToken}`)}`,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Jira API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorText,
-        url,
-      });
       throw new Error(`Erro ao buscar comentários: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('Comments response:', data);
-
-    if (!data.comments || !Array.isArray(data.comments)) {
-      console.error('Invalid response format:', data);
-      throw new Error('Formato de resposta inválido da API do Jira');
-    }
-
     return data.comments.map((comment: any) => ({
       id: comment.id,
       author: {
         displayName: comment.author.displayName,
         emailAddress: comment.author.emailAddress,
       },
-      body: comment.body,
+      body: comment.renderedBody || comment.body,
       created: comment.created,
       updated: comment.updated,
     }));
   } catch (error) {
-    console.error('Erro ao buscar comentários:', {
-      error,
-      issueId,
-      serverUrl: credentials.serverUrl,
+    console.error('Erro ao buscar comentários:', error);
+    throw error;
+  }
+};
+
+export const fetchJiraChangelog = async (
+  issueId: string,
+  credentials: {
+    email: string;
+    apiToken: string;
+    serverUrl: string;
+  }
+): Promise<JiraChangelog[]> => {
+  try {
+    const response = await fetch(`/api/jira/rest/api/3/issue/${issueId}/changelog`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Basic ${btoa(`${credentials.email}:${credentials.apiToken}`)}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
     });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar histórico: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.values.map((change: any) => ({
+      id: change.id,
+      author: {
+        displayName: change.author.displayName,
+        emailAddress: change.author.emailAddress,
+      },
+      created: change.created,
+      items: change.items.map((item: any) => ({
+        field: item.field,
+        fieldtype: item.fieldtype,
+        from: item.from,
+        fromString: item.fromString,
+        to: item.to,
+        toString: item.toString,
+      })),
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar histórico:', error);
     throw error;
   }
 }; 

@@ -78,4 +78,21 @@ export interface JiraApiIssue {
       }>;
     };
   };
+}
+
+export interface JiraChangelog {
+  id: string;
+  author: {
+    displayName: string;
+    emailAddress: string;
+  };
+  created: string;
+  items: {
+    field: string;
+    fieldtype: string;
+    from: string | null;
+    fromString: string | null;
+    to: string | null;
+    toString: string | null;
+  }[];
 } 
