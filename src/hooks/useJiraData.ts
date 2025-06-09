@@ -37,12 +37,13 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       0
     );
 
-    return {
+    const mappedIssue = {
       id: apiIssue.key,
       summary: apiIssue.fields.summary || '',
       issueType: apiIssue.fields.issuetype?.name || '',
       status: apiIssue.fields.status?.name || '',
       assignee: apiIssue.fields.assignee?.displayName || '',
+      assigneeEmail: apiIssue.fields.assignee?.emailAddress || '',
       created: apiIssue.fields.created,
       resolved: apiIssue.fields.resolutiondate || null,
       labels: apiIssue.fields.labels || [],
@@ -62,6 +63,8 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
         })),
       comments: apiIssue.fields.comment?.comments || []
     };
+
+    return mappedIssue;
   } catch (error) {
     console.error('Error mapping Jira issue:', error);
     return null;

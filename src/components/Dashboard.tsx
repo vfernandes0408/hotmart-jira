@@ -39,6 +39,7 @@ import IssueTimeline from "./IssueTimeline";
 import LabelComparison from "./LabelComparison";
 import TicketList from "./TicketList";
 import AssigneeComparison from "./AssigneeComparison";
+import GithubMetrics from "./GithubMetrics";
 import { JiraIssue, Filters } from "@/types/jira";
 
 const SESSION_KEY = "jira_dashboard_session";
@@ -634,6 +635,13 @@ const Dashboard = () => {
                         Responsáveis
                       </TabsTrigger>
                       <TabsTrigger
+                        value="github-metrics"
+                        className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-gray-500 data-[state=active]:to-gray-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-gray-50 hover:text-gray-700"
+                      >
+                        <Github className="w-3 h-3" />
+                        GitHub
+                      </TabsTrigger>
+                      <TabsTrigger
                         value="tickets"
                         className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-slate-500 data-[state=active]:to-slate-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-slate-50 hover:text-slate-700"
                       >
@@ -686,6 +694,16 @@ const Dashboard = () => {
                       </TabsContent>
 
                       <TabsContent
+                        value="github-metrics"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <GithubMetrics 
+                          data={filteredData} 
+                          dateRange={filters.dateRange}
+                        />
+                      </TabsContent>
+
+                      <TabsContent
                         value="tickets"
                         className="h-full m-0 p-3 overflow-auto"
                       >
@@ -703,14 +721,25 @@ const Dashboard = () => {
       {/* Modal de configuração de IA */}
       <Dialog open={iaModalOpen} onOpenChange={setIaModalOpen}>
         <DialogContent>
-                      <DialogHeader>
-              <DialogTitle>
-                {selectedIa === "openai" && "Configurar OpenAI API Key"}
-                {selectedIa === "gemini" && "Configurar Gemini API Key"}
-                {selectedIa === "hotmartjedai" && "Configurar Hotmart JedAi Key"}
-              </DialogTitle>
-            </DialogHeader>
-          <div className="space-y-4">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedIa === "openai" && "Configurar OpenAI API Key"}
+              {selectedIa === "gemini" && "Configurar Gemini API Key"}
+              {selectedIa === "hotmartjedai" && "Configurar Hotmart JedAi Key"}
+            </DialogTitle>
+          </DialogHeader>
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (selectedIa) {
+                const newKeys = { ...iaKeys, [selectedIa]: apiKey };
+                setIaKeys(newKeys);
+                localStorage.setItem("iaKeys", JSON.stringify(newKeys));
+                setIaModalOpen(false);
+              }
+            }}
+            className="space-y-4"
+          >
             <Label className="text-sm font-medium">API Key</Label>
             <Input
               type="password"
@@ -719,19 +748,12 @@ const Dashboard = () => {
               onChange={(e) => setApiKey(e.target.value)}
             />
             <Button
-              onClick={() => {
-                if (selectedIa) {
-                  const newKeys = { ...iaKeys, [selectedIa]: apiKey };
-                  setIaKeys(newKeys);
-                  localStorage.setItem("iaKeys", JSON.stringify(newKeys));
-                  setIaModalOpen(false);
-                }
-              }}
+              type="submit"
               disabled={!apiKey.trim()}
             >
               Salvar
             </Button>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
