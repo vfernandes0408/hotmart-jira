@@ -53,10 +53,10 @@ export interface JiraApiIssue {
     status?: { name: string };
     assignee?: { displayName: string };
     created: string;
-    resolutiondate?: string | null;
+    resolutiondate?: string;
     labels?: string[];
-    components?: Array<{ name: string }>;
-    project?: { key: string; name?: string };
+    components?: { name: string }[];
+    project?: { key: string };
     customfield_10016?: number;
     customfield_10004?: number;
     customfield_10002?: number;
@@ -64,19 +64,32 @@ export interface JiraApiIssue {
     customfield_10011?: number;
     customfield_10028?: number;
     customfield_10024?: number;
-    customfield_10000?: string;
     storypoints?: number;
     story_points?: number;
-    changelog?: {
-      histories: Array<{
+    comment?: {
+      comments: Array<{
+        id: string;
+        author: { displayName: string; emailAddress: string };
+        body: string;
         created: string;
-        items: Array<{
-          field: string;
-          fromString: string;
-          toString: string;
-        }>;
+        updated: string;
       }>;
     };
+  };
+  changelog?: {
+    histories: Array<{
+      id: string;
+      author: { displayName: string; emailAddress: string };
+      created: string;
+      items: Array<{
+        field: string;
+        fieldtype: string;
+        from: string | null;
+        fromString: string | null;
+        to: string | null;
+        toString: string | null;
+      }>;
+    }>;
   };
 }
 

@@ -51,7 +51,16 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       cycleTime: apiIssue.fields.resolutiondate
         ? Math.ceil((new Date(apiIssue.fields.resolutiondate).getTime() - new Date(apiIssue.fields.created).getTime()) / (1000 * 60 * 60 * 24))
         : 0,
-      leadTime: 0 // You might want to calculate this based on your specific workflow
+      leadTime: 0,
+      statusHistory: (apiIssue.changelog?.histories || [])
+        .filter(history => history.items.some(item => item.field === 'status'))
+        .map(history => ({
+          status: history.items.find(item => item.field === 'status')?.toString || '',
+          date: history.created,
+          from: history.items.find(item => item.field === 'status')?.fromString || '',
+          author: history.author.displayName
+        })),
+      comments: apiIssue.fields.comment?.comments || []
     };
   } catch (error) {
     console.error('Error mapping Jira issue:', error);
