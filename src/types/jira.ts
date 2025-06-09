@@ -10,6 +10,7 @@ export interface JiraIssue {
   created: string;
   resolved: string | null;
   assignee: string;
+  assigneeEmail: string;
   project: string;
 }
 
@@ -31,7 +32,10 @@ export interface JiraApiIssue {
     summary?: string;
     issuetype?: { name: string };
     status?: { name: string };
-    assignee?: { displayName: string };
+    assignee?: { 
+      displayName: string;
+      emailAddress: string;
+    };
     created: string;
     resolutiondate?: string | null;
     labels?: string[];

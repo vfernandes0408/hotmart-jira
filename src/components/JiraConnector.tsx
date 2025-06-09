@@ -23,11 +23,12 @@ interface JiraConnectorProps {
 const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const { credentials, updateCredential, isComplete } = useJiraCredentials();
-  const { data: jiraData, isLoading, refetch } = useJiraData({
+  const { data: jiraData, refetch } = useJiraData({
     email: credentials.email,
     apiToken: credentials.apiToken,
     projectKey: credentials.projectKey
   });
+  const [githubToken, setGithubToken] = useState("");
 
   const handleConnect = async () => {
     if (!isComplete) {
@@ -38,6 +39,11 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     setIsConnecting(true);
 
     try {
+      // Salvar o token do GitHub no localStorage
+      if (githubToken) {
+        localStorage.setItem("githubToken", githubToken);
+      }
+
       if (jiraData) {
         toast.success(
           `Conectado ao Jira com sucesso! ${jiraData.length} issues carregados.`
@@ -124,15 +130,37 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
               onChange={(e) => updateCredential("projectKey", e.target.value)}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="githubToken">Token do GitHub (opcional)</Label>
+            <Input
+              id="githubToken"
+              type="password"
+              placeholder="Seu Personal Access Token do GitHub"
+              value={githubToken}
+              onChange={(e) => setGithubToken(e.target.value)}
+            />
+            <p className="text-sm text-gray-500">
+              Necessário para visualizar as métricas do GitHub. Você pode criar um token em{" "}
+              <a
+                href="https://github.com/settings/tokens"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                github.com/settings/tokens
+              </a>
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end space-x-4">
           <Button
             onClick={handleConnect}
-            disabled={isLoading || isConnecting || !isComplete}
+            disabled={isConnecting || !isComplete}
             className="w-full sm:w-auto"
           >
-            {isLoading || isConnecting ? (
+            {isConnecting ? (
               <>
                 <span className="loading loading-spinner"></span>
                 Conectando...

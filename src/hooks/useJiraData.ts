@@ -9,20 +9,29 @@ interface JiraCredentials {
 
 const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
   try {
-    const storyPoints = 
-      apiIssue.fields.customfield_10016 || // Try different custom fields that might contain story points
+    // Função para converter para número de forma segura
+    const safeNumber = (value: any): number => {
+      if (typeof value === 'number' && !isNaN(value)) return value;
+      return 0;
+    };
+
+    // Extrair story points de forma segura
+    const storyPoints = safeNumber(
+      apiIssue.fields.customfield_10016 || 
       apiIssue.fields.customfield_10004 ||
       apiIssue.fields.customfield_10002 ||
       apiIssue.fields.storypoints ||
       apiIssue.fields.story_points ||
-      0;
+      0
+    );
 
-    return {
+    const mappedIssue = {
       id: apiIssue.key,
       summary: apiIssue.fields.summary || '',
       issueType: apiIssue.fields.issuetype?.name || '',
       status: apiIssue.fields.status?.name || '',
       assignee: apiIssue.fields.assignee?.displayName || '',
+      assigneeEmail: apiIssue.fields.assignee?.emailAddress || '',
       created: apiIssue.fields.created,
       resolved: apiIssue.fields.resolutiondate || null,
       labels: apiIssue.fields.labels || [],
@@ -33,6 +42,8 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
         : 0,
       leadTime: 0 // You might want to calculate this based on your specific workflow
     };
+
+    return mappedIssue;
   } catch (error) {
     console.error('Error mapping Jira issue:', error);
     return null;
