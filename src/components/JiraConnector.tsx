@@ -28,7 +28,6 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     apiToken: credentials.apiToken,
     projectKey: credentials.projectKey
   });
-  const [githubToken, setGithubToken] = useState("");
 
   const handleConnect = async () => {
     if (!isComplete) {
@@ -39,11 +38,6 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
     setIsConnecting(true);
 
     try {
-      // Salvar o token do GitHub no localStorage
-      if (githubToken) {
-        localStorage.setItem("githubToken", githubToken);
-      }
-
       if (jiraData) {
         toast.success(
           `Conectado ao Jira com sucesso! ${jiraData.length} issues carregados.`

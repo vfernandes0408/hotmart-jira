@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { JiraIssue } from '@/types/jira';
 import { GitCommit, GitPullRequest, GitPullRequestClosed, Calendar } from 'lucide-react';
-import { githubHeaders } from '@/config/github';
+import { githubHeaders, getGithubToken } from '@/config/github';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { AlertCircle } from 'lucide-react';
@@ -24,35 +24,28 @@ interface GithubUser {
 
 interface GithubMetricsProps {
   data: JiraIssue[];
-  dateRange: { start: string; end: string };
 }
 
-const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
-  const [loading, setLoading] = useState(true);
+const GithubMetrics: React.FC<GithubMetricsProps> = ({ data }) => {
   const [githubData, setGithubData] = useState<GithubUser[]>([]);
-  const [hasToken, setHasToken] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [localDateRange, setLocalDateRange] = useState(dateRange);
+  const [localDateRange, setLocalDateRange] = useState({
+    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0]
+  });
+
+  const token = getGithubToken();
+  const hasToken = !!token;
 
   // Cache para armazenar resultados
   const cache = new Map<string, any>();
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos em milissegundos
 
   useEffect(() => {
-    const token = localStorage.getItem('githubToken');
-    setHasToken(!!token);
-  }, []);
-
-  useEffect(() => {
-    setLocalDateRange(dateRange);
-  }, [dateRange]);
-
-  useEffect(() => {
     const fetchGithubData = async () => {
-      const token = localStorage.getItem('githubToken');
       if (!token) {
         setLoading(false);
-        setError('Token do GitHub não configurado');
         return;
       }
 

@@ -1,6 +1,7 @@
 export const getGithubToken = () => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('githubToken') || '';
+    const iaKeys = JSON.parse(localStorage.getItem('iaKeys') || '{}');
+    return iaKeys.github || '';
   }
   return '';
 };
