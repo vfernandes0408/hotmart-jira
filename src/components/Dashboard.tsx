@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Clock,
   Loader2,
+  Github,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ import TicketList from "./TicketList";
 import AssigneeComparison from "./AssigneeComparison";
 import GithubMetrics from "./GithubMetrics";
 import { JiraIssue, Filters } from "@/types/jira";
+import { useApiKeys } from "@/hooks/useApiKeys";
 
 const SESSION_KEY = "jira_dashboard_session";
 const SESSION_DURATION = 10 * 60 * 1000; // 10 minutos em millisegundos
@@ -51,12 +53,20 @@ interface SessionData {
   timestamp: number;
 }
 
-const Dashboard = () => {
+interface DashboardProps {
+  initialData: JiraIssue[];
+  iaKeys: { [key: string]: string };
+  onIaClick: (ia: string) => void;
+  onGithubClick: () => void;
+}
+
+const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: DashboardProps) => {
   const queryClient = useQueryClient();
+  const { isConfigured } = useApiKeys();
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [jiraData, setJiraData] = useState<JiraIssue[]>([]);
+  const [jiraData, setJiraData] = useState<JiraIssue[]>(initialData);
   const [filteredData, setFilteredData] = useState<JiraIssue[]>([]);
   const [projectKey, setProjectKey] = useState<string>("");
   const [sessionTimer, setSessionTimer] = useState<NodeJS.Timeout | null>(null);
@@ -69,18 +79,6 @@ const Dashboard = () => {
     labels: "",
     dateRange: { start: "", end: "" },
   });
-
-  // Estado para IA
-  const [iaModalOpen, setIaModalOpen] = useState(false);
-  const [selectedIa, setSelectedIa] = useState<"openai" | "gemini" | "hotmartjedai" | null>(null);
-  const [iaKeys, setIaKeys] = useState<{ [key: string]: string }>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("iaKeys") || "{}");
-    } catch {
-      return {};
-    }
-  });
-  const [apiKey, setApiKey] = useState("");
 
   // Funções para gerenciar sessão
   const saveSession = useCallback((data: JiraIssue[], projectKey: string) => {
@@ -428,7 +426,7 @@ const Dashboard = () => {
                   size="sm" 
                   variant={iaKeys["openai"] ? "default" : "outline"}
                   className={iaKeys["openai"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                  onClick={() => { setSelectedIa("openai"); setApiKey(iaKeys["openai"] || ""); setIaModalOpen(true); }}
+                  onClick={() => onIaClick("openai")}
                 >
                   {iaKeys["openai"] ? "🟢 OpenAI" : "OpenAI"}
                 </Button>
@@ -436,7 +434,7 @@ const Dashboard = () => {
                   size="sm" 
                   variant={iaKeys["gemini"] ? "default" : "outline"}
                   className={iaKeys["gemini"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                  onClick={() => { setSelectedIa("gemini"); setApiKey(iaKeys["gemini"] || ""); setIaModalOpen(true); }}
+                  onClick={() => onIaClick("gemini")}
                 >
                   {iaKeys["gemini"] ? "🟢 Gemini" : "Gemini"}
                 </Button>
@@ -444,9 +442,19 @@ const Dashboard = () => {
                   size="sm" 
                   variant={iaKeys["hotmartjedai"] ? "default" : "outline"}
                   className={iaKeys["hotmartjedai"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                  onClick={() => { setSelectedIa("hotmartjedai"); setApiKey(iaKeys["hotmartjedai"] || ""); setIaModalOpen(true); }}
+                  onClick={() => onIaClick("hotmartjedai")}
                 >
+                  <Brain className="w-4 h-4 mr-2" />
                   {iaKeys["hotmartjedai"] ? "🟢 HotmartJedai" : "HotmartJedai"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={isConfigured("github") ? "default" : "outline"}
+                  className={isConfigured("github") ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                  onClick={() => onGithubClick()}
+                >
+                  <Github className="w-4 h-4 mr-2" />
+                  {isConfigured("github") ? "🟢 GitHub" : "GitHub"}
                 </Button>
               </div>
             </div>
@@ -717,45 +725,6 @@ const Dashboard = () => {
           )}
         </div>
       </main>
-
-      {/* Modal de configuração de IA */}
-      <Dialog open={iaModalOpen} onOpenChange={setIaModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {selectedIa === "openai" && "Configurar OpenAI API Key"}
-              {selectedIa === "gemini" && "Configurar Gemini API Key"}
-              {selectedIa === "hotmartjedai" && "Configurar Hotmart JedAi Key"}
-            </DialogTitle>
-          </DialogHeader>
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (selectedIa) {
-                const newKeys = { ...iaKeys, [selectedIa]: apiKey };
-                setIaKeys(newKeys);
-                localStorage.setItem("iaKeys", JSON.stringify(newKeys));
-                setIaModalOpen(false);
-              }
-            }}
-            className="space-y-4"
-          >
-            <Label className="text-sm font-medium">API Key</Label>
-            <Input
-              type="password"
-              placeholder="Digite a chave"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-            <Button
-              type="submit"
-              disabled={!apiKey.trim()}
-            >
-              Salvar
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

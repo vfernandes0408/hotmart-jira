@@ -131,27 +131,6 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="githubToken">Token do GitHub (opcional)</Label>
-            <Input
-              id="githubToken"
-              type="password"
-              placeholder="Seu Personal Access Token do GitHub"
-              value={githubToken}
-              onChange={(e) => setGithubToken(e.target.value)}
-            />
-            <p className="text-sm text-gray-500">
-              Necessário para visualizar as métricas do GitHub. Você pode criar um token em{" "}
-              <a
-                href="https://github.com/settings/tokens"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                github.com/settings/tokens
-              </a>
-            </p>
-          </div>
         </div>
 
         <div className="flex justify-end space-x-4">

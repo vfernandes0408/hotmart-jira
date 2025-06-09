@@ -37,4 +37,11 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: [
+      '@tanstack/react-query',
+      '@tanstack/query-sync-storage-persister',
+      '@tanstack/react-query-persist-client',
+    ],
+  },
 });
