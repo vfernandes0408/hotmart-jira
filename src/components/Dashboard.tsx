@@ -23,7 +23,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  RefreshCw,
+  Clock,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import JiraConnector from "./JiraConnector";
 import CycleTimeScatterplot from "./CycleTimeScatterplot";
 import MetricsCards from "./MetricsCards";
@@ -45,10 +49,10 @@ interface SessionData {
   timestamp: number;
 }
 
-
-
 const Dashboard = () => {
+  const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [jiraData, setJiraData] = useState<JiraIssue[]>([]);
   const [filteredData, setFilteredData] = useState<JiraIssue[]>([]);
   const [projectKey, setProjectKey] = useState<string>("");
@@ -193,6 +197,39 @@ const Dashboard = () => {
     };
   }, []);
 
+  const formatLastUpdate = (date: Date | null) => {
+    if (!date) return "";
+    
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    
+    // Formatar o horário
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+    
+    // Se for menos de 1 minuto
+    if (diff < 60000) {
+      return `Atualizado agora (${timeStr})`;
+    }
+    
+    // Se for menos de 1 hora
+    if (diff < 3600000) {
+      const mins = Math.floor(diff / 60000);
+      return `Atualizado há ${mins} min (${timeStr})`;
+    }
+    
+    // Se for menos de 24 horas
+    if (diff < 86400000) {
+      const hrs = Math.floor(diff / 3600000);
+      return `Atualizado há ${hrs}h (${timeStr})`;
+    }
+    
+    // Se for mais de 24 horas
+    const days = Math.floor(diff / 86400000);
+    return `Atualizado há ${days}d (${timeStr})`;
+  };
+
   const handleJiraConnect = (
     data: JiraIssue[],
     connectedProjectKey?: string
@@ -223,6 +260,7 @@ const Dashboard = () => {
     setJiraData(cleanData);
     setFilteredData(cleanData);
     setProjectKey(detectedProjectKey);
+    setLastUpdate(new Date());
   };
 
   const handleFiltersChange = (newFilters: Filters) => {
@@ -308,6 +346,17 @@ const Dashboard = () => {
       dateRange: { start: "", end: "" },
     });
   };
+
+  const handleRefreshData = useCallback(async () => {
+    try {
+      await queryClient.invalidateQueries();
+      setLastUpdate(new Date());
+      toast.success("Dados atualizados com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao atualizar os dados");
+      console.error("Erro ao atualizar dados:", error);
+    }
+  }, [queryClient]);
 
   return (
     <div className="h-screen bg-gradient-to-br from-zinc-50 via-neutral-50 to-stone-100 flex flex-col overflow-hidden">
@@ -399,15 +448,32 @@ const Dashboard = () => {
               </div>
 
               {isConnected && (
-                <Button
-                  onClick={handleLogout}
-                  variant="outline"
-                  size="sm"
-                  className="px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:text-red-800 transition-all"
-                >
-                  <LogOut className="w-3 h-3 mr-1" />
-                  <span className="hidden sm:inline">Sair</span>
-                </Button>
+                <>
+                  {lastUpdate && (
+                    <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-600 border border-gray-200">
+                      <Clock className="w-3 h-3" />
+                      {formatLastUpdate(lastUpdate)}
+                    </div>
+                  )}
+                  <Button
+                    onClick={handleRefreshData}
+                    variant="outline"
+                    size="sm"
+                    className="px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:text-blue-800 transition-all"
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    <span className="hidden sm:inline">Atualizar</span>
+                  </Button>
+                  <Button
+                    onClick={handleLogout}
+                    variant="outline"
+                    size="sm"
+                    className="px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:text-red-800 transition-all"
+                  >
+                    <LogOut className="w-3 h-3 mr-1" />
+                    <span className="hidden sm:inline">Sair</span>
+                  </Button>
+                </>
               )}
             </div>
           </div>
