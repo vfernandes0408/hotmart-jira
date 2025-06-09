@@ -1,3 +1,21 @@
+export interface JiraStatusHistory {
+  status: string;
+  date: string;
+  from: string;
+  author: string;
+}
+
+export interface JiraComment {
+  id: string;
+  author: {
+    displayName: string;
+    emailAddress: string;
+  };
+  body: string;
+  created: string;
+  updated: string;
+}
+
 export interface JiraIssue {
   id: string;
   summary: string;
@@ -11,6 +29,8 @@ export interface JiraIssue {
   resolved: string | null;
   assignee: string;
   project: string;
+  statusHistory: JiraStatusHistory[];
+  comments: JiraComment[];
 }
 
 export interface Filters {
@@ -47,5 +67,15 @@ export interface JiraApiIssue {
     customfield_10000?: string;
     storypoints?: number;
     story_points?: number;
+    changelog?: {
+      histories: Array<{
+        created: string;
+        items: Array<{
+          field: string;
+          fromString: string;
+          toString: string;
+        }>;
+      }>;
+    };
   };
 } 

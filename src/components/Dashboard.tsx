@@ -35,7 +35,7 @@ import MetricsCards from "./MetricsCards";
 import FiltersPanel from "./FiltersPanel";
 import TrendChart from "./TrendChart";
 import PerformanceChart from "./PerformanceChart";
-
+import IssueTimeline from "./IssueTimeline";
 import LabelComparison from "./LabelComparison";
 import TicketList from "./TicketList";
 import AssigneeComparison from "./AssigneeComparison";
@@ -586,7 +586,7 @@ const Dashboard = () => {
                     defaultValue="scatterplot"
                     className="flex flex-col h-full"
                   >
-                    <TabsList className="flex-shrink-0 grid w-full grid-cols-6 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
+                    <TabsList className="flex-shrink-0 grid w-full grid-cols-7 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
                       <TabsTrigger
                         value="scatterplot"
                         className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-blue-50 hover:text-blue-700"
@@ -610,6 +610,14 @@ const Dashboard = () => {
                         <Target className="w-3 h-3" />
                         <span className="hidden sm:inline">Performance</span>
                         <span className="sm:hidden">Perf</span>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="timeline"
+                        className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-rose-50 hover:text-rose-700"
+                      >
+                        <Clock className="w-3 h-3" />
+                        <span className="hidden sm:inline">Timeline</span>
+                        <span className="sm:hidden">Time</span>
                       </TabsTrigger>
                       <TabsTrigger
                         value="comparison"
@@ -651,6 +659,13 @@ const Dashboard = () => {
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <PerformanceChart data={filteredData} />
+                      </TabsContent>
+
+                      <TabsContent
+                        value="timeline"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <IssueTimeline data={filteredData} />
                       </TabsContent>
 
                       <TabsContent
