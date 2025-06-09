@@ -1,5 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -13,37 +14,54 @@ function createWindow() {
   });
 
   // In development, load from the dev server
-  if (process.env.NODE_ENV != 'development') {
+  if (isDev) {
     win.loadURL('http://localhost:8888');
     win.webContents.openDevTools();
   } else {
-    // In production, load the built files
-    win.loadFile(path.join(__dirname, '../dist/index.html'));
+    // In production/preview, load the built files
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    win.loadFile(indexPath).catch(err => {
+      console.error('Failed to load index.html:', err);
+      // Try loading with file protocol
+      win.loadFile(path.join(__dirname, '../dist/index.html'));
+    });
   }
 
   // Handle client-side routing
-  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    if (errorCode === -102) { // ERR_CONNECTION_REFUSED
-      win.loadFile(path.join(__dirname, '../dist/index.html'));
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    if (errorCode === -102 || errorCode === -6) { // Connection refused or file not found
+      if (isDev) {
+        win.loadURL('http://localhost:8888');
+      } else {
+        const indexPath = path.join(__dirname, '../dist/index.html');
+        win.loadFile(indexPath).catch(() => {
+          win.loadFile(path.join(__dirname, '../dist/index.html'));
+        });
+      }
     }
   });
 
-  // Handle navigation
+  // Intercept navigation events
   win.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('http://localhost:8888')) {
-      event.preventDefault();
-      win.loadFile(path.join(__dirname, '../dist/index.html'));
+    // Allow navigation to localhost in dev mode
+    if (isDev && url.startsWith('http://localhost:8888')) {
+      return;
     }
-  });
-
-  // Handle hash navigation
-  win.webContents.on('did-navigate', (event, url) => {
-    if (!url.startsWith('http://localhost:8888')) {
-      win.loadFile(path.join(__dirname, '../dist/index.html'));
+    
+    // Prevent navigation and load the app
+    event.preventDefault();
+    if (isDev) {
+      win.loadURL('http://localhost:8888');
+    } else {
+      const indexPath = path.join(__dirname, '../dist/index.html');
+      win.loadFile(indexPath).catch(() => {
+        win.loadFile(path.join(__dirname, '../dist/index.html'));
+      });
     }
   });
 }
 
+// Handle app lifecycle
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
