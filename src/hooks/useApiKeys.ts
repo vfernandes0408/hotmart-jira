@@ -1,60 +1,33 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 
-export const API_KEYS_QUERY_KEY = ['api', 'keys'];
+const IA_KEYS_KEY = 'iaKeys';
 
-interface ApiKeys {
-  openai?: string;
-  gemini?: string;
-  hotmartjedai?: string;
-  github?: string;
-  [key: string]: string | undefined;
-}
+export const useApiKeys = () => {
+  const [apiKeys, setApiKeys] = useState<{ [key: string]: string }>({});
 
-export function useApiKeys() {
-  const queryClient = useQueryClient();
-
-  const { data: apiKeys = {} } = useQuery<ApiKeys>({
-    queryKey: API_KEYS_QUERY_KEY,
-    queryFn: () => {
-      try {
-        return JSON.parse(localStorage.getItem('iaKeys') || '{}');
-      } catch {
-        return {};
-      }
-    },
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
+  useEffect(() => {
+    const savedKeys = localStorage.getItem(IA_KEYS_KEY);
+    if (savedKeys) {
+      setApiKeys(JSON.parse(savedKeys));
+    }
+  }, []);
 
   const saveKey = (key: string, value: string) => {
-    try {
-      const newKeys = { ...apiKeys, [key]: value };
-      localStorage.setItem('iaKeys', JSON.stringify(newKeys));
-      queryClient.setQueryData(API_KEYS_QUERY_KEY, newKeys);
-    } catch (error) {
-      console.error('Error saving key:', error);
-    }
+    const newKeys = { ...apiKeys, [key]: value };
+    localStorage.setItem(IA_KEYS_KEY, JSON.stringify(newKeys));
+    setApiKeys(newKeys);
   };
 
   const removeKey = (key: string) => {
-    try {
-      const { [key]: _, ...rest } = apiKeys;
-      localStorage.setItem('iaKeys', JSON.stringify(rest));
-      queryClient.setQueryData(API_KEYS_QUERY_KEY, rest);
-    } catch (error) {
-      console.error('Error removing key:', error);
-    }
+    const newKeys = { ...apiKeys };
+    delete newKeys[key];
+    localStorage.setItem(IA_KEYS_KEY, JSON.stringify(newKeys));
+    setApiKeys(newKeys);
   };
 
-  const getKey = (key: string) => apiKeys[key];
-
-  const isConfigured = (key: string) => Boolean(apiKeys[key]);
-
-  return {
-    apiKeys,
-    saveKey,
-    removeKey,
-    getKey,
-    isConfigured,
+  const isConfigured = (key: string) => {
+    return !!apiKeys[key];
   };
-} 
+
+  return { apiKeys, saveKey, removeKey, isConfigured };
+}; 

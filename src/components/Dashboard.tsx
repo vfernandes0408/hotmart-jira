@@ -430,23 +430,6 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                 >
                   {iaKeys["openai"] ? "🟢 OpenAI" : "OpenAI"}
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant={iaKeys["gemini"] ? "default" : "outline"}
-                  className={iaKeys["gemini"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                  onClick={() => onIaClick("gemini")}
-                >
-                  {iaKeys["gemini"] ? "🟢 Gemini" : "Gemini"}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant={iaKeys["hotmartjedai"] ? "default" : "outline"}
-                  className={iaKeys["hotmartjedai"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                  onClick={() => onIaClick("hotmartjedai")}
-                >
-                  <Brain className="w-4 h-4 mr-2" />
-                  {iaKeys["hotmartjedai"] ? "🟢 HotmartJedai" : "HotmartJedai"}
-                </Button>
                 <Button
                   size="sm"
                   variant={isConfigured("github") ? "default" : "outline"}
@@ -649,13 +632,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         <Github className="w-3 h-3" />
                         GitHub
                       </TabsTrigger>
-                      <TabsTrigger
-                        value="tickets"
-                        className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-slate-500 data-[state=active]:to-slate-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-slate-50 hover:text-slate-700"
-                      >
-                        <List className="w-3 h-3" />
-                        Tickets
-                      </TabsTrigger>
+
                     </TabsList>
 
                     <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden">
@@ -706,8 +683,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <GithubMetrics 
-                          data={filteredData} 
-                          dateRange={filters.dateRange}
+                          data={filteredData}
                         />
                       </TabsContent>
 

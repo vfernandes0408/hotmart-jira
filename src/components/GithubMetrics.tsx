@@ -1,616 +1,339 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
-import { JiraIssue } from '@/types/jira';
-import { GitCommit, GitPullRequest, GitPullRequestClosed, Calendar } from 'lucide-react';
-import { githubHeaders, getGithubToken } from '@/config/github';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { AlertCircle } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-
-interface GithubUser {
-  name: string;
-  email: string;
-  commits: number;
-  prsReviewed: number;
-  prsCreated: number;
-  comments: number;
-  reactions: number;
-  changes: number;
-}
+import { RefreshCw, Github, Play, Pause } from 'lucide-react';
+import { useApiKeys } from '@/hooks/useApiKeys';
+import { toast } from 'sonner';
+import { JiraIssue } from '@/types/jira';
+import { githubHeaders, getGithubToken } from '@/config/github';
 
 interface GithubMetricsProps {
   data: JiraIssue[];
 }
 
+interface GithubData {
+  commits: number;
+  pullRequests: number;
+  reviews: number;
+  comments: number;
+  reactions: number;
+  changes: number;
+}
+
+interface GithubUser {
+  name: string;
+  email: string;
+  commits: number;
+  prsCreated: number;
+  prsReviewed: number;
+  comments: number;
+  reactions: number;
+  changes: number;
+}
+
 const GithubMetrics: React.FC<GithubMetricsProps> = ({ data }) => {
-  const [githubData, setGithubData] = useState<GithubUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [localDateRange, setLocalDateRange] = useState({
-    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
-  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [githubData, setGithubData] = useState<GithubData | null>(null);
+  const { isConfigured } = useApiKeys();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const token = getGithubToken();
-  const hasToken = !!token;
+  const handleImport = async () => {
+    if (!isConfigured('github')) {
+      toast.error('Configure o token do GitHub primeiro!');
+      return;
+    }
 
-  // Cache para armazenar resultados
-  const cache = new Map<string, any>();
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos em milissegundos
+    if (isPaused) {
+      setIsPaused(false);
+      return;
+    }
 
-  useEffect(() => {
-    const fetchGithubData = async () => {
+    if (isImporting) {
+      setIsPaused(true);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      return;
+    }
+
+    setIsImporting(true);
+    setIsPaused(false);
+    try {
+      const token = getGithubToken();
       if (!token) {
-        setLoading(false);
+        toast.error('Token do GitHub não encontrado');
         return;
       }
 
-      // Testar permissões do token
-      try {
-        console.log('🔍 Testando permissões do token...');
-        
-        // Testar acesso à API
-        const testResponse = await fetch('https://api.github.com/user', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/vnd.github.v3+json',
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
+      // Testa o token e as permissões
+      const testResponse = await fetch('https://api.github.com/user', {
+        headers: githubHeaders,
+        signal
+      });
+
+      if (!testResponse.ok) {
+        const errorData = await testResponse.json();
+        console.error('Erro ao testar token:', errorData);
+        toast.error('Token do GitHub inválido ou sem permissões necessárias');
+        return;
+      }
+
+      // Testa acesso à organização
+      const orgResponse = await fetch('https://api.github.com/orgs/Hotmart-Org', {
+        headers: githubHeaders,
+        signal
+      });
+
+      if (!orgResponse.ok) {
+        console.error('Erro ao acessar organização:', await orgResponse.json());
+        toast.error('Token não tem permissão para acessar a organização Hotmart-Org');
+        return;
+      }
+
+      // Busca os dados do GitHub
+      const uniqueAssignees = [...new Set(data.map(issue => issue.assigneeEmail).filter(Boolean))];
+      
+      if (uniqueAssignees.length === 0) {
+        toast.error('Nenhum assignee com email válido encontrado nos dados do Jira');
+        return;
+      }
+
+      const githubDataPromises = uniqueAssignees.map(async (email) => {
+        try {
+          if (signal.aborted) {
+            throw new Error('Operação cancelada');
           }
-        });
 
-        if (!testResponse.ok) {
-          const errorData = await testResponse.json();
-          console.log('❌ Erro ao testar token:', errorData);
-          setError('Token do GitHub inválido ou sem permissões necessárias. Por favor, gere um novo token com as permissões: repo, read:org, read:user, user:email');
-          setLoading(false);
-          return;
-        }
+          // Busca usuário do GitHub pelo email
+          const userResponse = await fetch(`https://api.github.com/search/users?q=${email}+in:email`, {
+            headers: githubHeaders,
+            signal
+          });
 
-        const userData = await testResponse.json();
-        console.log('✅ Token válido! Usuário autenticado:', userData.login);
-        console.log('✅ Escopos do token:', testResponse.headers.get('x-oauth-scopes'));
-
-        // Verificar se tem acesso à organização
-        const orgResponse = await fetch('https://api.github.com/orgs/Hotmart-Org', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/vnd.github.v3+json',
+          if (!userResponse.ok) {
+            throw new Error('Erro ao buscar usuário do GitHub');
           }
-        });
 
-        if (!orgResponse.ok) {
-          console.log('❌ Erro ao acessar organização:', await orgResponse.json());
-          setError('Token não tem permissão para acessar a organização Hotmart-Org. Adicione o escopo read:org');
-          setLoading(false);
-          return;
+          const userData = await userResponse.json();
+          const user = userData.items[0];
+
+          if (!user) {
+            console.warn(`Usuário não encontrado para o email: ${email}`);
+            return null;
+          }
+
+          // Busca commits
+          const commitsResponse = await fetch(`https://api.github.com/search/commits?q=author:${user.login}+org:Hotmart-Org`, {
+            headers: { ...githubHeaders, Accept: 'application/vnd.github.cloak-preview' },
+            signal
+          });
+
+          if (!commitsResponse.ok) {
+            throw new Error('Erro ao buscar commits');
+          }
+
+          const commitsData = await commitsResponse.json();
+
+          // Busca PRs criados
+          const prsCreatedResponse = await fetch(`https://api.github.com/search/issues?q=author:${user.login}+org:Hotmart-Org+type:pr`, {
+            headers: githubHeaders,
+            signal
+          });
+
+          if (!prsCreatedResponse.ok) {
+            throw new Error('Erro ao buscar PRs criados');
+          }
+
+          const prsCreatedData = await prsCreatedResponse.json();
+
+          // Busca PRs revisados
+          const prsReviewedResponse = await fetch(`https://api.github.com/search/issues?q=reviewed-by:${user.login}+org:Hotmart-Org+type:pr`, {
+            headers: githubHeaders,
+            signal
+          });
+
+          if (!prsReviewedResponse.ok) {
+            throw new Error('Erro ao buscar PRs revisados');
+          }
+
+          const prsReviewedData = await prsReviewedResponse.json();
+
+          return {
+            name: user.login,
+            email,
+            commits: commitsData.total_count,
+            prsCreated: prsCreatedData.total_count,
+            prsReviewed: prsReviewedData.total_count,
+            comments: 0, // TODO: Implementar
+            reactions: 0, // TODO: Implementar
+            changes: 0, // TODO: Implementar
+          };
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.log('Requisição cancelada para:', email);
+            return null;
+          }
+          console.error(`Erro ao buscar dados do GitHub para ${email}:`, error);
+          return null;
         }
+      });
 
-        console.log('✅ Acesso à organização confirmado!');
-
-      } catch (error) {
-        console.error('❌ Erro ao testar permissões:', error);
-        setError('Erro ao testar permissões do token. Por favor, gere um novo token com as permissões necessárias.');
-        setLoading(false);
+      const results = await Promise.all(githubDataPromises);
+      
+      if (signal.aborted) {
+        toast.info('Importação pausada');
         return;
       }
 
-      if (!localDateRange.start || !localDateRange.end) {
-        setLoading(false);
-        setError('Selecione um período para visualizar as métricas');
+      const validGithubData = results.filter((data): data is GithubUser => data !== null);
+
+      if (validGithubData.length === 0) {
+        toast.error('Não foi possível buscar dados do GitHub. Verifique o token de acesso.');
         return;
       }
 
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Obter assignees únicos dos dados do Jira, filtrando emails undefined ou vazios
-        const uniqueAssignees = Array.from(
-          new Set(
-            data
-              .filter(item => item.assigneeEmail && item.assigneeEmail.trim() !== '')
-              .map(item => item.assigneeEmail)
-          )
-        );
-
-        if (uniqueAssignees.length === 0) {
-          setLoading(false);
-          setError('Nenhum assignee com email válido encontrado nos dados do Jira');
-          return;
+      // Agrega os dados
+      setGithubData({
+        commits: validGithubData.reduce((total, user) => total + user.commits, 0),
+        pullRequests: validGithubData.reduce((total, user) => total + user.prsCreated, 0),
+        reviews: validGithubData.reduce((total, user) => total + user.prsReviewed, 0),
+        comments: validGithubData.reduce((total, user) => total + user.comments, 0),
+        reactions: validGithubData.reduce((total, user) => total + user.reactions, 0),
+        changes: validGithubData.reduce((total, user) => total + user.changes, 0)
+      });
+      
+      toast.success('Dados do GitHub importados com sucesso!');
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          toast.info('Importação pausada');
+        } else {
+          console.error('Erro ao importar dados do GitHub:', error.message);
+          toast.error(`Erro ao importar dados do GitHub: ${error.message}`);
         }
-
-        // Buscar dados do GitHub para cada assignee
-        const githubUsersData = await Promise.all(
-          uniqueAssignees.map(async (email) => {
-            try {
-              console.log(`\n=== Buscando dados para email: ${email} ===`);
-              
-              // Transformar email em username do GitHub
-              const emailParts = email.split('@')[0].split('.');
-              const githubUsername = `${emailParts.join('')}-hotmart`;
-              console.log(`🔍 Buscando usuário com username: ${githubUsername}`);
-
-              // Buscar usuário no GitHub
-              const userResponse = await fetch(
-                `https://api.github.com/users/${githubUsername}`,
-                { 
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: 'application/vnd.github.v3+json',
-                  }
-                }
-              );
-
-              if (!userResponse.ok) {
-                const errorData = await userResponse.json();
-                console.log(`❌ Erro ao buscar usuário ${githubUsername}:`, errorData);
-                throw new Error(`Erro ao buscar usuário: ${errorData.message || userResponse.statusText}`);
-              }
-
-              const userData = await userResponse.json();
-              console.log(`✅ Usuário encontrado: ${githubUsername}`, {
-                id: userData.id,
-                type: userData.type,
-                public_repos: userData.public_repos
-              });
-
-              // Função auxiliar para fazer requisições com retry e cache
-              const fetchWithRetry = async (url: string, options: any, maxRetries = 3) => {
-                // Verificar cache
-                const cacheKey = `${url}-${JSON.stringify(options)}`;
-                const cachedData = cache.get(cacheKey);
-                if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
-                  console.log('📦 Usando dados do cache');
-                  return cachedData.response;
-                }
-
-                let retries = 0;
-                while (retries < maxRetries) {
-                  try {
-                    const response = await fetch(url, options);
-                    
-                    // Se for erro de limite de taxa
-                    if (response.status === 403) {
-                      const errorData = await response.json();
-                      if (errorData.message?.includes('rate limit')) {
-                        // Verificar headers de rate limit
-                        const resetTime = response.headers.get('x-ratelimit-reset');
-                        const remaining = response.headers.get('x-ratelimit-remaining');
-                        
-                        console.log(`⚠️ Limite de taxa atingido. Tentativas restantes: ${remaining}`);
-                        
-                        if (resetTime) {
-                          const waitTime = (parseInt(resetTime) * 1000) - Date.now() + 1000; // Adiciona 1 segundo de margem
-                          if (waitTime > 0) {
-                            console.log(`⏳ Aguardando ${Math.ceil(waitTime/1000)} segundos até o reset do limite...`);
-                            await new Promise(resolve => setTimeout(resolve, waitTime));
-                            continue;
-                          }
-                        }
-                        
-                        retries++;
-                        if (retries < maxRetries) {
-                          const waitTime = Math.pow(2, retries) * 1000; // Backoff exponencial
-                          console.log(`⚠️ Tentativa ${retries + 1} de ${maxRetries}. Aguardando ${waitTime/1000} segundos...`);
-                          await new Promise(resolve => setTimeout(resolve, waitTime));
-                          continue;
-                        }
-                      }
-                      throw new Error(errorData.message || 'Erro na requisição');
-                    }
-                    
-                    if (!response.ok) {
-                      const errorData = await response.json();
-                      throw new Error(errorData.message || response.statusText);
-                    }
-
-                    // Clonar a resposta para poder ser lida múltiplas vezes
-                    const clonedResponse = response.clone();
-                    
-                    // Salvar no cache
-                    cache.set(cacheKey, {
-                      response: clonedResponse,
-                      timestamp: Date.now()
-                    });
-                    
-                    return response;
-                  } catch (error) {
-                    retries++;
-                    if (retries === maxRetries) throw error;
-                    const waitTime = Math.pow(2, retries) * 1000; // Backoff exponencial
-                    console.log(`⚠️ Erro na requisição. Tentativa ${retries + 1} de ${maxRetries}. Aguardando ${waitTime/1000} segundos...`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                  }
-                }
-                throw new Error('Número máximo de tentativas excedido');
-              };
-
-              // Buscar PRs criados
-              const prsCreatedResponse = await fetchWithRetry(
-                `https://api.github.com/search/issues?q=author:${githubUsername}+org:Hotmart-Org+type:pr+created:${localDateRange.start}..${localDateRange.end}`,
-                { 
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: 'application/vnd.github.v3+json',
-                  }
-                }
-              );
-
-              const prsCreatedData = await prsCreatedResponse.json();
-              console.log(`✅ PRs criados encontrados para ${githubUsername}:`, {
-                total_count: prsCreatedData.total_count,
-                items: prsCreatedData.items?.map((item: any) => ({
-                  number: item.number,
-                  title: item.title,
-                  state: item.state,
-                  created_at: item.created_at,
-                  closed_at: item.closed_at,
-                  user: item.user?.login
-                }))
-              });
-
-              // Buscar PRs revisados
-              const prsReviewedResponse = await fetchWithRetry(
-                `https://api.github.com/search/issues?q=reviewed-by:${githubUsername}+org:Hotmart-Org+type:pr+created:${localDateRange.start}..${localDateRange.end}`,
-                { 
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: 'application/vnd.github.v3+json',
-                  }
-                }
-              );
-
-              const prsReviewedData = await prsReviewedResponse.json();
-              console.log(`✅ PRs revisados encontrados para ${githubUsername}:`, {
-                total_count: prsReviewedData.total_count,
-                items: prsReviewedData.items?.map((item: any) => ({
-                  number: item.number,
-                  title: item.title,
-                  state: item.state,
-                  created_at: item.created_at,
-                  closed_at: item.closed_at,
-                  user: item.user?.login
-                }))
-              });
-
-              // Buscar commits
-              const commitsResponse = await fetchWithRetry(
-                `https://api.github.com/search/commits?q=author:${githubUsername}+org:Hotmart-Org+committer-date:${localDateRange.start}..${localDateRange.end}`,
-                { 
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: 'application/vnd.github.v3+json',
-                  }
-                }
-              );
-
-              const commitsData = await commitsResponse.json();
-              console.log(`✅ Commits encontrados para ${githubUsername}:`, {
-                total_count: commitsData.total_count,
-                items: commitsData.items?.map((item: any) => ({
-                  sha: item.sha,
-                  committer_date: item.commit.committer.date,
-                  message: item.commit.message,
-                  additions: item.stats?.additions,
-                  deletions: item.stats?.deletions,
-                  total_changes: item.stats?.total
-                }))
-              });
-
-              // Buscar discussões e comentários
-              const discussionsResponse = await fetchWithRetry(
-                `https://api.github.com/search/issues?q=commenter:${githubUsername}+org:Hotmart-Org+created:${localDateRange.start}..${localDateRange.end}`,
-                { 
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: 'application/vnd.github.v3+json',
-                  }
-                }
-              );
-
-              const discussionsData = await discussionsResponse.json();
-              console.log(`✅ Discussões e comentários encontrados para ${githubUsername}:`, {
-                total_count: discussionsData.total_count,
-                items: discussionsData.items?.map((item: any) => ({
-                  number: item.number,
-                  title: item.title,
-                  type: item.pull_request ? 'PR' : 'Issue',
-                  state: item.state,
-                  created_at: item.created_at,
-                  comments: item.comments,
-                  reactions: item.reactions?.total_count
-                }))
-              });
-
-              // Calcular métricas adicionais
-              const totalComments = (discussionsData.items || []).reduce((total: number, item: any) => total + (item.comments || 0), 0);
-              const totalReactions = (discussionsData.items || []).reduce((total: number, item: any) => total + (item.reactions?.total_count || 0), 0);
-              const totalChanges = (commitsData.items || []).reduce((total: number, item: any) => total + (item.stats?.total || 0), 0);
-
-              console.log('\n📊 Resumo final:', {
-                usuario: githubUsername,
-                totalCommits: commitsData.total_count,
-                totalPRsCreated: prsCreatedData.total_count,
-                totalPRsReviewed: prsReviewedData.total_count,
-                totalComments,
-                totalReactions,
-                totalChanges,
-                period: `${localDateRange.start} até ${localDateRange.end}`
-              });
-
-              return {
-                name: githubUsername,
-                email: email,
-                commits: commitsData.total_count,
-                prsReviewed: prsReviewedData.total_count,
-                prsCreated: prsCreatedData.total_count,
-                comments: totalComments,
-                reactions: totalReactions,
-                changes: totalChanges
-              };
-            } catch (error) {
-              console.error(`❌ Erro ao buscar dados do GitHub para ${email}:`, error);
-              if (error instanceof Error && error.message.includes('Token do GitHub inválido')) {
-                setError(error.message);
-                return null;
-              }
-              toast.error(`Erro ao buscar dados do GitHub para ${email}`);
-              return {
-                name: email.split('@')[0],
-                email: email,
-                commits: 0,
-                prsReviewed: 0,
-                prsCreated: 0,
-                comments: 0,
-                reactions: 0,
-                changes: 0
-              };
-            }
-          })
-        );
-
-        // Filtrar resultados nulos (erros de autenticação)
-        const validGithubData = githubUsersData.filter(data => data !== null);
-        
-        if (validGithubData.length === 0) {
-          setError('Não foi possível buscar dados do GitHub. Verifique o token de acesso.');
-          return;
-        }
-
-        setGithubData(validGithubData);
-      } catch (error) {
-        console.error('❌ Erro ao buscar dados do GitHub:', error);
-        setError(error instanceof Error ? error.message : 'Erro ao buscar dados do GitHub');
-        toast.error('Erro ao buscar dados do GitHub');
-      } finally {
-        setLoading(false);
+      } else {
+        console.error('Erro ao importar dados do GitHub:', error);
+        toast.error('Erro ao importar dados do GitHub. Tente novamente.');
       }
-    };
-
-    fetchGithubData();
-  }, [data, localDateRange, hasToken]);
-
-  const handleDateChange = (type: 'start' | 'end', value: string) => {
-    setLocalDateRange(prev => ({
-      ...prev,
-      [type]: value
-    }));
+    } finally {
+      if (!isPaused) {
+        setIsImporting(false);
+        abortControllerRef.current = null;
+      }
+    }
   };
 
-  if (!hasToken) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GitCommit className="w-5 h-5" />
-            Métricas do GitHub
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-amber-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Token do GitHub não configurado</h3>
-            <p className="text-gray-600 mb-4">
-              Para visualizar as métricas do GitHub, você precisa configurar um token de acesso pessoal.
-            </p>
-            <Button
-              onClick={() => {
-                localStorage.removeItem('jira_dashboard_session');
-                window.location.reload();
-              }}
-              variant="outline"
-            >
-              Configurar Token
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const handleRefresh = async () => {
+    if (!isConfigured('github')) {
+      toast.error('Configure o token do GitHub primeiro!');
+      return;
+    }
 
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GitCommit className="w-5 h-5" />
-            Métricas do GitHub
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Erro ao carregar métricas</h3>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <Button
-              onClick={() => {
-                localStorage.removeItem('jira_dashboard_session');
-                window.location.reload();
-              }}
-              variant="outline"
-            >
-              Tentar Novamente
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+    if (!githubData) {
+      toast.error('Execute a importação primeiro!');
+      return;
+    }
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Métricas do GitHub</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center space-x-4">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-[250px]" />
-                  <Skeleton className="h-4 w-[200px]" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (githubData.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GitCommit className="w-5 h-5" />
-            Métricas do GitHub
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum dado encontrado</h3>
-            <p className="text-gray-600 mb-6">
-              Não foram encontradas métricas do GitHub para os assignees selecionados.
-            </p>
-            <div className="w-full max-w-md space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="startDate">Data Inicial</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={localDateRange.start}
-                      onChange={(e) => handleDateChange('start', e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="endDate">Data Final</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={localDateRange.end}
-                      onChange={(e) => handleDateChange('end', e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-                </div>
-              </div>
-              <Button
-                onClick={() => {
-                  setLoading(true);
-                  setGithubData([]);
-                }}
-                className="w-full"
-              >
-                Buscar Métricas
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+    setIsLoading(true);
+    try {
+      await handleImport();
+      toast.success('Dados do GitHub atualizados com sucesso!');
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('Erro ao atualizar dados do GitHub:', error.message);
+        toast.error(`Erro ao atualizar dados do GitHub: ${error.message}`);
+      } else {
+        console.error('Erro ao atualizar dados do GitHub:', error);
+        toast.error('Erro ao atualizar dados do GitHub. Tente novamente.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <GitCommit className="w-5 h-5" />
-          Métricas do GitHub
-        </CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">Métricas do GitHub</CardTitle>
+        <div className="flex items-center gap-2">
+          {githubData && !isImporting && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoading || isImporting || !isConfigured('github')}
+              className={`h-8 w-8 p-0 ${isLoading ? 'opacity-50' : ''}`}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImport}
+            disabled={isLoading || !isConfigured('github')}
+            className={`h-8 ${(isImporting || isPaused) ? 'opacity-50' : ''}`}
+          >
+            {isImporting ? (
+              <>
+                <Pause className={`h-4 w-4 mr-2 ${isPaused ? '' : 'animate-pulse'}`} />
+                {isPaused ? 'Continuar' : 'Pausar'}
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-2" />
+                Importar
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <GitCommit className="w-4 h-4" />
-                  Commits
-                </div>
-              </TableHead>
-              <TableHead className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <GitPullRequest className="w-4 h-4" />
-                  PRs Criados
-                </div>
-              </TableHead>
-              <TableHead className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <GitPullRequestClosed className="w-4 h-4" />
-                  PRs Revisados
-                </div>
-              </TableHead>
-              <TableHead className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <GitCommit className="w-4 h-4" />
-                  Comentários
-                </div>
-              </TableHead>
-              <TableHead className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <GitPullRequest className="w-4 h-4" />
-                  Reações
-                </div>
-              </TableHead>
-              <TableHead className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <GitPullRequestClosed className="w-4 h-4" />
-                  Mudanças
-                </div>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {githubData.map((user) => (
-              <TableRow key={user.email}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell className="text-center">{user.commits}</TableCell>
-                <TableCell className="text-center">{user.prsCreated}</TableCell>
-                <TableCell className="text-center">{user.prsReviewed}</TableCell>
-                <TableCell className="text-center">{user.comments}</TableCell>
-                <TableCell className="text-center">{user.reactions}</TableCell>
-                <TableCell className="text-center">{user.changes}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        {!isConfigured('github') ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <Github className="h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500">Configure o token do GitHub para visualizar as métricas</p>
+          </div>
+        ) : !githubData ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <Github className="h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500">Clique no botão de importar para carregar os dados</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs text-gray-500">Commits</span>
+                <span className="text-2xl font-bold">{githubData.commits}</span>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs text-gray-500">Pull Requests</span>
+                <span className="text-2xl font-bold">{githubData.pullRequests}</span>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs text-gray-500">Reviews</span>
+                <span className="text-2xl font-bold">{githubData.reviews}</span>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs text-gray-500">Comments</span>
+                <span className="text-2xl font-bold">{githubData.comments}</span>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs text-gray-500">Reactions</span>
+                <span className="text-2xl font-bold">{githubData.reactions}</span>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <span className="text-xs text-gray-500">Changes</span>
+                <span className="text-2xl font-bold">{githubData.changes}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
