@@ -1,8 +1,8 @@
-
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, TrendingUp, Target, Activity, CheckCircle2, AlertCircle, Tag } from 'lucide-react';
+import { Clock, TrendingUp, Target, Activity, CheckCircle2, AlertCircle, Tag, HelpCircle } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 
 interface MetricsCardsProps {
   data: JiraIssue[];
@@ -59,7 +59,8 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       color: 'from-blue-500 to-blue-600',
       bgColor: 'from-blue-50 to-blue-100',
       textColor: 'text-blue-700',
-      format: (value: number) => value.toString()
+      format: (value: number) => value.toString(),
+      description: 'Número total de issues no período selecionado, incluindo todas as issues independente do status.'
     },
     {
       title: 'Issues Completados',
@@ -68,7 +69,8 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       color: 'from-green-500 to-green-600',
       bgColor: 'from-green-50 to-green-100',
       textColor: 'text-green-700',
-      format: (value: number) => value.toString()
+      format: (value: number) => value.toString(),
+      description: 'Número de issues que foram concluídas (status Done/Closed) no período selecionado.'
     },
     {
       title: 'Cycle Time Médio',
@@ -77,7 +79,8 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       color: 'from-orange-500 to-orange-600',
       bgColor: 'from-orange-50 to-orange-100',
       textColor: 'text-orange-700',
-      format: (value: number) => `${value.toFixed(1)} dias`
+      format: (value: number) => `${value.toFixed(1)} dias`,
+      description: 'Tempo médio que uma issue leva desde o início do desenvolvimento até sua conclusão. Um Cycle Time menor indica um fluxo de trabalho mais eficiente.'
     },
     {
       title: 'Lead Time Médio',
@@ -86,7 +89,8 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       color: 'from-purple-500 to-purple-600',
       bgColor: 'from-purple-50 to-purple-100',
       textColor: 'text-purple-700',
-      format: (value: number) => `${value.toFixed(1)} dias`
+      format: (value: number) => `${value.toFixed(1)} dias`,
+      description: 'Tempo médio total desde a criação da issue até sua conclusão, incluindo o tempo em backlog. Um Lead Time menor indica maior agilidade no processo completo.'
     },
     {
       title: 'Throughput (30d)',
@@ -95,7 +99,8 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       color: 'from-indigo-500 to-indigo-600',
       bgColor: 'from-indigo-50 to-indigo-100',
       textColor: 'text-indigo-700',
-      format: (value: number) => `${value} issues`
+      format: (value: number) => `${value} issues`,
+      description: 'Quantidade de issues concluídas nos últimos 30 dias. Indica a capacidade de entrega da equipe em um período recente.'
     },
     {
       title: 'Taxa de Conclusão',
@@ -104,7 +109,8 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       color: 'from-teal-500 to-teal-600',
       bgColor: 'from-teal-50 to-teal-100',
       textColor: 'text-teal-700',
-      format: (value: number) => `${value.toFixed(1)}%`
+      format: (value: number) => `${value.toFixed(1)}%`,
+      description: 'Porcentagem de issues concluídas em relação ao total de issues. Uma taxa maior indica melhor eficiência na conclusão das tarefas.'
     }
   ];
 
@@ -116,26 +122,28 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
           const Icon = metric.icon;
           
           return (
-            <Card key={index} className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:scale-105">
-              <CardContent className="p-3 sm:p-4 lg:p-6">
-                <div className="flex items-center justify-between mb-2 sm:mb-4">
-                  <div className={`p-2 sm:p-3 rounded-xl bg-gradient-to-br ${metric.bgColor}`}>
-                    <Icon className={`w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 ${metric.textColor}`} />
-                  </div>
-                  <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gradient-to-r ${metric.color}`} />
+            <Card key={index} className="relative">
+              <div className={`p-6 bg-gradient-to-br ${metric.bgColor}`}>
+                <div className="absolute top-2 right-2">
+                  <HoverCard>
+                    <HoverCardTrigger>
+                      <HelpCircle className="w-4 h-4 text-gray-400" />
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                      <div className="space-y-2">
+                        <p className="text-sm">{metric.description}</p>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 </div>
-                
-                <div className="space-y-1">
-                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">
-                    {metric.format(metric.value)}
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground font-medium line-clamp-2">
-                    {metric.title}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <Icon className={`w-4 h-4 ${metric.textColor}`} />
+                  <span className="text-sm font-medium text-gray-600">{metric.title}</span>
                 </div>
-                
-    
-              </CardContent>
+                <div className={`text-2xl font-bold mt-2 ${metric.textColor}`}>
+                  {metric.format(metric.value)}
+                </div>
+              </div>
             </Card>
           );
         })}

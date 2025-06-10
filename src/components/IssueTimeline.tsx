@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from '@/components/ui/badge';
 
 interface IssueTimelineProps {
   data: JiraIssue[];
@@ -124,6 +125,17 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Done':
+        return 'bg-green-100 text-green-700';
+      case 'In Progress':
+        return 'bg-blue-100 text-blue-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Search input */}
@@ -139,58 +151,77 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
       </div>
 
       {/* Timeline content */}
-      <div className="space-y-8">
+      <div className="space-y-8 max-h-[calc(100vh-12rem)] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         {Object.entries(groupedIssues).map(([month, issues]) => (
           <div key={month} className="relative">
             {/* Month header */}
-            <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm py-2 mb-4">
+            <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm py-2 mb-4 border-b border-gray-100">
               <h3 className="text-lg font-semibold text-gray-800 capitalize">
                 {month}
               </h3>
             </div>
 
             {/* Timeline */}
-            <div className="relative pl-8 space-y-4">
+            <div className="relative pl-8 space-y-6">
               {/* Vertical line */}
-              <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200" />
+              <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500/50 to-blue-500/10" />
 
               {issues.map((issue) => (
-                <div key={issue.id} className="relative">
+                <div key={issue.id} className="relative group">
                   {/* Timeline dot */}
-                  <div className="absolute left-[-1.5rem] w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
+                  <div className="absolute left-[-1.5rem] w-3 h-3 rounded-full bg-blue-500 border-2 border-white shadow-sm group-hover:scale-110 group-hover:bg-blue-600 transition-all duration-200" />
 
-                  <Card className="hover:shadow-md transition-shadow">
+                  <Card className="hover:shadow-md transition-all duration-200 hover:translate-x-1">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">
+                          <button 
+                            onClick={async () => {
+                              setSelectedIssue(issue);
+                              setIsDialogOpen(true);
+                              await loadChangelog(issue.id);
+                            }}
+                            className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                          >
                             {issue.id}
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-1">
+                          </button>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2 group-hover:line-clamp-none transition-all duration-200">
                             {issue.summary}
                           </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="text-xs text-gray-500">
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" />
                               {format(new Date(issue.created), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
                             </span>
                             {issue.storyPoints > 0 && (
-                              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
                                 {issue.storyPoints} pts
-                              </span>
+                              </Badge>
+                            )}
+                            {issue.labels && issue.labels.length > 0 && (
+                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                {issue.labels[0]}
+                                {issue.labels.length > 1 && ` +${issue.labels.length - 1}`}
+                              </Badge>
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            issue.status === 'Done' ? 'bg-green-100 text-green-700' :
-                            issue.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
+                        <div className="flex flex-col items-end gap-2">
+                          <Badge variant="outline" className={`text-xs ${getStatusColor(issue.status)}`}>
                             {issue.status}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {issue.assignee}
-                          </span>
+                          </Badge>
+                          {issue.assignee && (
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <User className="w-3.5 h-3.5" />
+                              {issue.assignee}
+                            </span>
+                          )}
+                          {issue.cycleTime && (
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <Timer className="w-3.5 h-3.5" />
+                              {issue.cycleTime} dias
+                            </span>
+                          )}
                         </div>
                       </div>
                     </CardContent>

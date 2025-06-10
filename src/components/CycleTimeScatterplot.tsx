@@ -5,6 +5,7 @@ import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Responsive
 import { Clock, TrendingUp, BarChart3 } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
 import { JiraLink, renderTextWithJiraLinks } from '@/utils/jiraLinks';
+import { format } from 'date-fns';
 
 interface CycleTimeScatterplotProps {
   data: JiraIssue[];
@@ -220,7 +221,7 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filte
                 tickLine={false}
                 tick={{ fill: '#6B7280', fontSize: 12 }}
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(value) => new Date(value).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' })}
+                tickFormatter={(value) => format(new Date(value), 'MM/yyyy')}
               />
               <YAxis 
                 type="number" 

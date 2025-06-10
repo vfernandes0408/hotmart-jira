@@ -29,6 +29,7 @@ import {
   Github,
   Sparkles,
   Calendar,
+  RotateCcw,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -80,15 +81,8 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onDateRang
   // Formatar a data de hoje no formato YYYY-MM-DD
   const today = getCurrentDate();
 
-  // Inicializar as datas se estiverem vazias
-  useEffect(() => {
-    if (!dateRange.start) {
-      onDateRangeChange("start", getFirstDayOfCurrentMonth());
-    }
-    if (!dateRange.end) {
-      onDateRangeChange("end", getCurrentDate());
-    }
-  }, []);
+  // Não inicializar as datas automaticamente
+  // Remover o useEffect que setava as datas padrão
 
   const handleDateChange = (key: string, value: string) => {
     // Se a data selecionada é maior que hoje, não atualiza
@@ -161,8 +155,8 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     assignee: "",
     labels: "",
     dateRange: {
-      start: getFirstDayOfCurrentMonth(),
-      end: getCurrentDate(),
+      start: "",
+      end: "",
     },
   });
 
@@ -670,10 +664,33 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                     className="flex flex-col h-full"
                   >
                     <div className="flex flex-col gap-4 mb-4">
-                      <DateRangeFilter
-                        dateRange={filters.dateRange}
-                        onDateRangeChange={handleDateRangeChange}
-                      />
+                      <div className="flex items-center justify-between gap-4">
+                        <DateRangeFilter
+                          dateRange={filters.dateRange}
+                          onDateRangeChange={handleDateRangeChange}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // Resetar todos os filtros, incluindo datas
+                            setFilters({
+                              issueType: "",
+                              status: "",
+                              assignee: "",
+                              labels: "",
+                              dateRange: {
+                                start: "",
+                                end: "",
+                              },
+                            });
+                          }}
+                          className="flex items-center gap-1.5 text-xs px-3 rounded-lg transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          Limpar Filtros
+                        </Button>
+                      </div>
                       <TabsList className="flex-shrink-0 grid w-full grid-cols-7 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
                         <TabsTrigger
                           value="scatterplot"

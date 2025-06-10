@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Target } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
+import { format } from 'date-fns';
 
 interface PerformanceChartProps {
   data: JiraIssue[];
@@ -16,6 +17,7 @@ interface PerformanceChartProps {
 
 interface IssueTypePerformance {
   issueType: string;
+  displayDate: string;
   totalIssues: number;
   totalCycleTime: number;
   completed: number;
@@ -52,6 +54,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data, filters }) =>
       if (!acc[issueType]) {
         acc[issueType] = {
           issueType,
+          displayDate: format(itemDate, 'MM/yyyy'),
           totalIssues: 0,
           totalCycleTime: 0,
           completed: 0,
@@ -126,7 +129,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data, filters }) =>
                 <BarChart data={performanceData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
-                    dataKey="issueType" 
+                    dataKey="displayDate" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
                     angle={-45}

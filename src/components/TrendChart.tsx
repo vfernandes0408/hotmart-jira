@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, HelpCircle, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, HelpCircle, Download } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/hover-card";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { format } from 'date-fns';
 
 interface TrendChartProps {
   data: JiraIssue[];
@@ -104,6 +105,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
       if (!acc[createdMonthKey]) {
         acc[createdMonthKey] = {
           month: createdMonthKey,
+          displayMonth: format(createdDate, 'MM/yyyy'),
           totalIssues: 0,
           totalCycleTime: 0,
           avgCycleTime: 0,
@@ -117,6 +119,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
       if (!acc[resolvedMonthKey]) {
         acc[resolvedMonthKey] = {
           month: resolvedMonthKey,
+          displayMonth: format(resolvedDate, 'MM/yyyy'),
           totalIssues: 0,
           totalCycleTime: 0,
           avgCycleTime: 0,
@@ -180,6 +183,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
       .map((item: any) => {
         const monthData: any = {
           month: item.month,
+          displayMonth: item.displayMonth,
           avgCycleTime: item.totalIssues > 0 ? Math.round(item.totalCycleTime / item.totalIssues) : 0,
           completionRate: item.createdInMonth > 0 ? Math.round((item.resolvedInMonth / item.createdInMonth) * 100) : 0
         };
@@ -203,6 +207,66 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
       })
       .sort((a: any, b: any) => a.month.localeCompare(b.month));
 
+    // Calcular crescimento em relação ao mês anterior
+    monthlyData.forEach((item, index) => {
+      if (index > 0) {
+        const previousMonth = monthlyData[index - 1];
+        
+        // Calcular crescimento do cycle time
+        if (previousMonth.avgCycleTime > 0) {
+          const cycleTimeGrowth = ((item.avgCycleTime - previousMonth.avgCycleTime) / previousMonth.avgCycleTime) * 100;
+          item.cycleTimeGrowth = Math.round(cycleTimeGrowth);
+        } else {
+          item.cycleTimeGrowth = item.avgCycleTime > 0 ? 100 : 0;
+        }
+
+        // Calcular crescimento da taxa de conclusão
+        if (previousMonth.completionRate > 0) {
+          const completionRateGrowth = ((item.completionRate - previousMonth.completionRate) / previousMonth.completionRate) * 100;
+          item.completionRateGrowth = Math.round(completionRateGrowth);
+        } else {
+          item.completionRateGrowth = item.completionRate > 0 ? 100 : 0;
+        }
+
+        // Calcular crescimento por responsável
+        if (assigneesToShow.length > 0) {
+          assigneesToShow.forEach(assignee => {
+            // Cycle Time por responsável
+            const currentAssigneeTime = item[`avgCycleTime_${assignee}`];
+            const previousAssigneeTime = previousMonth[`avgCycleTime_${assignee}`];
+            
+            if (previousAssigneeTime > 0) {
+              const assigneeGrowth = ((currentAssigneeTime - previousAssigneeTime) / previousAssigneeTime) * 100;
+              item[`growth_${assignee}`] = Math.round(assigneeGrowth);
+            } else {
+              item[`growth_${assignee}`] = currentAssigneeTime > 0 ? 100 : 0;
+            }
+
+            // Taxa de Conclusão por responsável
+            const currentCompletionRate = item[`completionRate_${assignee}`];
+            const previousCompletionRate = previousMonth[`completionRate_${assignee}`];
+            
+            if (previousCompletionRate > 0) {
+              const completionRateGrowth = ((currentCompletionRate - previousCompletionRate) / previousCompletionRate) * 100;
+              item[`completionRateGrowth_${assignee}`] = Math.round(completionRateGrowth);
+            } else {
+              item[`completionRateGrowth_${assignee}`] = currentCompletionRate > 0 ? 100 : 0;
+            }
+          });
+        }
+      } else {
+        // Para o primeiro mês, não há crescimento para calcular
+        item.cycleTimeGrowth = 0;
+        item.completionRateGrowth = 0;
+        if (assigneesToShow.length > 0) {
+          assigneesToShow.forEach(assignee => {
+            item[`growth_${assignee}`] = 0;
+            item[`completionRateGrowth_${assignee}`] = 0;
+          });
+        }
+      }
+    });
+
     return { monthlyData, assignees: assigneesToShow };
   };
 
@@ -210,13 +274,62 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
   const hasAssignees = assignees.length > 0;
   const showOnlyAverage = !hasAssignees;
 
+  // Função para renderizar o indicador de crescimento
+  const renderGrowthIndicator = (growth: number, isCompletionRate: boolean = false) => {
+    if (growth === 0) return null;
+    
+    // Para taxa de conclusão: positivo é verde, negativo é vermelho
+    // Para cycle time: positivo é vermelho (pior), negativo é verde (melhor)
+    const isPositive = isCompletionRate ? growth > 0 : growth < 0;
+    const color = isPositive ? 'text-green-600' : 'text-red-600';
+    const Icon = isPositive ? TrendingUp : TrendingDown;
+    
+    return (
+      <div className={`flex items-center gap-1 text-xs ${color}`}>
+        <Icon className="w-3 h-3" />
+        <span>{growth > 0 ? '+' : ''}{growth}%</span>
+      </div>
+    );
+  };
+
   return (
     <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-blue-600" />
-            Análise de Tendências
+            <div className="flex items-center gap-2">
+              Análise de Tendências
+              <HoverCard>
+                <HoverCardTrigger>
+                  <HelpCircle className="w-4 h-4 text-gray-400" />
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">O que é Análise de Tendências?</h4>
+                    <p className="text-sm">A análise de tendências mostra a evolução do desempenho da equipe ao longo do tempo, permitindo identificar padrões e melhorias no processo.</p>
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm font-medium">O gráfico mostra:</p>
+                      <ul className="text-sm space-y-1 list-disc pl-4">
+                        <li>Cycle Time médio por mês</li>
+                        <li>Taxa de conclusão de tarefas</li>
+                        <li>Comparação entre responsáveis</li>
+                        <li>Percentual de crescimento mês a mês</li>
+                      </ul>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm font-medium">Como interpretar:</p>
+                      <ul className="text-sm space-y-1 list-disc pl-4">
+                        <li>Cycle Time menor indica maior eficiência</li>
+                        <li>Taxa de conclusão maior indica melhor produtividade</li>
+                        <li>Setas verdes (↓) indicam melhoria no processo</li>
+                        <li>Setas vermelhas (↑) indicam pontos de atenção</li>
+                      </ul>
+                    </div>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
+            </div>
           </CardTitle>
           <div className="flex items-center gap-4">
             {hasAssignees && (
@@ -243,7 +356,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
       </CardHeader>
       <CardContent>
         {monthlyData.length > 0 ? (
-          <div ref={chartRef} className="space-y-8 bg-white p-4 rounded-lg">
+          <div ref={chartRef} className="space-y-8 bg-white p-8 rounded-lg">
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <h4 className="text-sm font-medium">Cycle Time Médio por Mês</h4>
@@ -255,15 +368,18 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                     <div className="space-y-2">
                       <p className="text-sm">O Cycle Time representa o tempo médio que uma tarefa leva para ser concluída, desde o início do desenvolvimento até a conclusão.</p>
                       <p className="text-sm">Um Cycle Time menor indica um fluxo de trabalho mais eficiente.</p>
+                      <p className="text-sm font-medium mt-2">Indicador de Crescimento:</p>
+                      <p className="text-sm">↑ Verde: Redução no tempo (positivo)</p>
+                      <p className="text-sm">↓ Vermelho: Aumento no tempo (negativo)</p>
                     </div>
                   </HoverCardContent>
                 </HoverCard>
               </div>
               <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={monthlyData}>
+                <LineChart data={monthlyData} margin={{ top: 32, right: 32, bottom: 32, left: 32 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
-                    dataKey="month" 
+                    dataKey="displayMonth" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
                   />
@@ -274,9 +390,33 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                   />
                   <Tooltip 
                     formatter={(value, name: string) => {
-                      if (name === 'avgCycleTime') return [`${value} dias`, 'Média Geral'];
+                      if (name === 'avgCycleTime') {
+                        const item = monthlyData.find(d => d.avgCycleTime === value);
+                        return [
+                          <>
+                            <div>{value} dias</div>
+                            {item && item.cycleTimeGrowth !== 0 && (
+                              <div className={`text-xs ${item.cycleTimeGrowth < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.cycleTimeGrowth > 0 ? '+' : ''}{item.cycleTimeGrowth}% vs mês anterior
+                              </div>
+                            )}
+                          </>,
+                          'Média Geral'
+                        ];
+                      }
                       const assignee = name.replace('avgCycleTime_', '');
-                      return [`${value} dias`, assignee];
+                      const item = monthlyData.find(d => d[name] === value);
+                      return [
+                        <>
+                          <div>{value} dias</div>
+                          {item && item[`growth_${assignee}`] !== 0 && (
+                            <div className={`text-xs ${item[`growth_${assignee}`] < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {item[`growth_${assignee}`] > 0 ? '+' : ''}{item[`growth_${assignee}`]}% vs mês anterior
+                            </div>
+                          )}
+                        </>,
+                        assignee
+                      ];
                     }}
                     labelFormatter={(label) => `Mês: ${label}`}
                     contentStyle={{
@@ -296,6 +436,21 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                       strokeWidth={2}
                       name="Média Geral"
                       strokeDasharray={hasAssignees ? "5 5" : undefined}
+                      label={({x, y, value, index}) => {
+                        const item = monthlyData[index];
+                        if (!item || item.cycleTimeGrowth === 0) return null;
+                        return (
+                          <text 
+                            x={x} 
+                            y={y - 10} 
+                            fill={item.cycleTimeGrowth < 0 ? "#16a34a" : "#dc2626"} 
+                            fontSize={10} 
+                            textAnchor="middle"
+                          >
+                            {item.cycleTimeGrowth > 0 ? '+' : ''}{item.cycleTimeGrowth}%
+                          </text>
+                        );
+                      }}
                     />
                   )}
                   {/* Linhas por responsável */}
@@ -309,6 +464,21 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                       name={assignee}
                       dot={{ fill: COLORS[index % COLORS.length], strokeWidth: 2, r: 4 }}
                       activeDot={{ r: 6, stroke: COLORS[index % COLORS.length], strokeWidth: 2 }}
+                      label={({x, y, value, index}) => {
+                        const item = monthlyData[index];
+                        if (!item || item[`growth_${assignee}`] === 0) return null;
+                        return (
+                          <text 
+                            x={x} 
+                            y={y - 10} 
+                            fill={item[`growth_${assignee}`] < 0 ? "#16a34a" : "#dc2626"} 
+                            fontSize={10} 
+                            textAnchor="middle"
+                          >
+                            {item[`growth_${assignee}`] > 0 ? '+' : ''}{item[`growth_${assignee}`]}%
+                          </text>
+                        );
+                      }}
                     />
                   ))}
                 </LineChart>
@@ -325,16 +495,19 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                   <HoverCardContent className="w-80">
                     <div className="space-y-2">
                       <p className="text-sm">A Taxa de Conclusão representa a porcentagem de tarefas concluídas em relação ao total de tarefas criadas em cada mês.</p>
-                      <p className="text-sm">Um valor de 100% significa que todas as tarefas criadas no mês foram concluídas, enquanto valores menores indicam que algumas tarefas ainda estão em andamento ou pendentes.</p>
+                      <p className="text-sm">Uma taxa maior indica melhor produtividade da equipe.</p>
+                      <p className="text-sm font-medium mt-2">Indicador de Crescimento:</p>
+                      <p className="text-sm">↑ Verde: Aumento na taxa (positivo)</p>
+                      <p className="text-sm">↓ Vermelho: Redução na taxa (negativo)</p>
                     </div>
                   </HoverCardContent>
                 </HoverCard>
               </div>
               <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={monthlyData}>
+                <LineChart data={monthlyData} margin={{ top: 32, right: 32, bottom: 32, left: 32 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
-                    dataKey="month" 
+                    dataKey="displayMonth" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
                   />
@@ -345,9 +518,33 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                   />
                   <Tooltip 
                     formatter={(value, name: string) => {
-                      if (name === 'completionRate') return [`${value}%`, 'Média Geral'];
+                      if (name === 'completionRate') {
+                        const item = monthlyData.find(d => d.completionRate === value);
+                        return [
+                          <>
+                            <div>{value}%</div>
+                            {item && item.completionRateGrowth !== 0 && (
+                              <div className={`text-xs ${item.completionRateGrowth > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.completionRateGrowth > 0 ? '+' : ''}{item.completionRateGrowth}% vs mês anterior
+                              </div>
+                            )}
+                          </>,
+                          'Média Geral'
+                        ];
+                      }
                       const assignee = name.replace('completionRate_', '');
-                      return [`${value}%`, assignee];
+                      const item = monthlyData.find(d => d[name] === value);
+                      return [
+                        <>
+                          <div>{value}%</div>
+                          {item && item[`completionRateGrowth_${assignee}`] !== 0 && (
+                            <div className={`text-xs ${item[`completionRateGrowth_${assignee}`] > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {item[`completionRateGrowth_${assignee}`] > 0 ? '+' : ''}{item[`completionRateGrowth_${assignee}`]}% vs mês anterior
+                            </div>
+                          )}
+                        </>,
+                        assignee
+                      ];
                     }}
                     labelFormatter={(label) => `Mês: ${label}`}
                     contentStyle={{
@@ -367,6 +564,21 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                       strokeWidth={2}
                       name="Média Geral"
                       strokeDasharray={hasAssignees ? "5 5" : undefined}
+                      label={({x, y, value, index}) => {
+                        const item = monthlyData[index];
+                        if (!item || item.completionRateGrowth === 0) return null;
+                        return (
+                          <text 
+                            x={x} 
+                            y={y - 10} 
+                            fill={item.completionRateGrowth > 0 ? "#16a34a" : "#dc2626"} 
+                            fontSize={10} 
+                            textAnchor="middle"
+                          >
+                            {item.completionRateGrowth > 0 ? '+' : ''}{item.completionRateGrowth}%
+                          </text>
+                        );
+                      }}
                     />
                   )}
                   {/* Linhas por responsável */}
@@ -380,6 +592,21 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                       name={assignee}
                       dot={{ fill: COLORS[index % COLORS.length], strokeWidth: 2, r: 4 }}
                       activeDot={{ r: 6, stroke: COLORS[index % COLORS.length], strokeWidth: 2 }}
+                      label={({x, y, value, index}) => {
+                        const item = monthlyData[index];
+                        if (!item || item[`completionRateGrowth_${assignee}`] === 0) return null;
+                        return (
+                          <text 
+                            x={x} 
+                            y={y - 10} 
+                            fill={item[`completionRateGrowth_${assignee}`] > 0 ? "#16a34a" : "#dc2626"} 
+                            fontSize={10} 
+                            textAnchor="middle"
+                          >
+                            {item[`completionRateGrowth_${assignee}`] > 0 ? '+' : ''}{item[`completionRateGrowth_${assignee}`]}%
+                          </text>
+                        );
+                      }}
                     />
                   ))}
                 </LineChart>
