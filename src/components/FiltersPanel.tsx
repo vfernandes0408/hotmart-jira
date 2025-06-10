@@ -220,29 +220,6 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
               })}
             </div>
           </div>
-          {/* Período */}
-          <div className="pt-2 space-y-2">
-            <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Período
-            </Label>
-            <div className="space-y-1">
-              <Input
-                type="date"
-                placeholder="Data inicial"
-                value={filters.dateRange?.start || ''}
-                onChange={(e) => handleDateRangeChange('start', e.target.value)}
-                className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-              />
-              <Input
-                type="date"
-                placeholder="Data final"
-                value={filters.dateRange?.end || ''}
-                onChange={(e) => handleDateRangeChange('end', e.target.value)}
-                className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
         </CardContent>
       </div>
       {/* Rodapé com resumo */}

@@ -28,6 +28,7 @@ import {
   Loader2,
   Github,
   Sparkles,
+  Calendar,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -60,6 +61,44 @@ interface DashboardProps {
   onIaClick: (ia: string) => void;
   onGithubClick: () => void;
 }
+
+interface DateRangeFilterProps {
+  dateRange: { start: string; end: string };
+  onDateRangeChange: (key: string, value: string) => void;
+}
+
+const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onDateRangeChange }) => {
+  return (
+    <div className="flex items-center justify-end mb-1">
+      <div className="flex items-center gap-2">
+        <Calendar className="w-4 h-4 text-gray-500" />
+        <Label htmlFor="start-date" className="text-sm">
+          Data Inicial
+        </Label>
+        <Input
+          type="date"
+          id="start-date"
+          value={dateRange.start}
+          onChange={(e) => onDateRangeChange("start", e.target.value)}
+          className="w-40"
+        />
+      </div>
+      <div className="flex items-center gap-2 ml-4">
+        <Calendar className="w-4 h-4 text-gray-500" />
+        <Label htmlFor="end-date" className="text-sm">
+          Data Final
+        </Label>
+        <Input
+          type="date"
+          id="end-date"
+          value={dateRange.end}
+          onChange={(e) => onDateRangeChange("end", e.target.value)}
+          className="w-40"
+        />
+      </div>
+    </div>
+  );
+};
 
 const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: DashboardProps) => {
   const queryClient = useQueryClient();
@@ -360,6 +399,17 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     }
   }, [queryClient]);
 
+  const handleDateRangeChange = (key: string, value: string) => {
+    const newFilters = {
+      ...filters,
+      dateRange: {
+        ...filters.dateRange,
+        [key]: value,
+      },
+    };
+    handleFiltersChange(newFilters);
+  };
+
   return (
     <div className="h-screen bg-gradient-to-br from-zinc-50 via-neutral-50 to-stone-100 flex flex-col overflow-hidden">
       {/* Header - Responsive */}
@@ -410,10 +460,8 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
               </svg>
             </div>
 
-   
-
             <div className="flex items-center gap-2 ml-4">
-            {isConnected && (
+              {isConnected && (
                 <>
                   {lastUpdate && (
                     <div className="hidden sm:flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg transition-all duration-200 bg-gradient-to-r from-zinc-100 to-zinc-50 border border-zinc-200/50 text-zinc-600 hover:from-zinc-200 hover:to-zinc-100">
@@ -534,6 +582,8 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         data={jiraData}
                         filters={filters}
                         onFiltersChange={handleFiltersChange}
+                        projectKey={projectKey}
+                        onRefresh={handleRefreshData}
                       />
                     </div>
                   </div>
@@ -572,121 +622,126 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                     defaultValue="scatterplot"
                     className="flex flex-col h-full"
                   >
-                    <TabsList className="flex-shrink-0 grid w-full grid-cols-7 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
-                      <TabsTrigger
-                        value="scatterplot"
-                        className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-blue-50 hover:text-blue-700"
-                      >
-                        <BarChart3 className="w-3 h-3" />
-                        <span className="hidden sm:inline">Cycle Time</span>
-                        <span className="sm:hidden">Cycle</span>
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="trends"
-                        className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700"
-                      >
-                        <TrendingUp className="w-3 h-3" />
-                        <span className="hidden sm:inline">Tendências</span>
-                        <span className="sm:hidden">Trend</span>
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="performance"
-                        className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-purple-50 hover:text-purple-700"
-                      >
-                        <Target className="w-3 h-3" />
-                        <span className="hidden sm:inline">Performance</span>
-                        <span className="sm:hidden">Perf</span>
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="timeline"
-                        className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-rose-50 hover:text-rose-700"
-                      >
-                        <Clock className="w-3 h-3" />
-                        <span className="hidden sm:inline">Ticket</span>
-                        <span className="sm:hidden">Time</span>
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="comparison"
-                        className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-orange-50 hover:text-orange-700"
-                      >
-                        <Activity className="w-3 h-3" />
-                        IA
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="assignee-comparison"
-                        className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-cyan-50 hover:text-cyan-700"
-                      >
-                        <Users className="w-3 h-3" />
-                        Responsáveis
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="github-metrics"
-                        className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-gray-500 data-[state=active]:to-gray-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-gray-50 hover:text-gray-700"
-                      >
-                        <Github className="w-3 h-3" />
-                        GitHub
-                      </TabsTrigger>
+                    <div className="flex flex-col gap-4 mb-4">
+                      <DateRangeFilter
+                        dateRange={filters.dateRange}
+                        onDateRangeChange={handleDateRangeChange}
+                      />
+                      <TabsList className="flex-shrink-0 grid w-full grid-cols-7 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
+                        <TabsTrigger
+                          value="scatterplot"
+                          className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-blue-50 hover:text-blue-700"
+                        >
+                          <BarChart3 className="w-3 h-3" />
+                          <span className="hidden sm:inline">Cycle Time</span>
+                          <span className="sm:hidden">Cycle</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="trends"
+                          className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700"
+                        >
+                          <TrendingUp className="w-3 h-3" />
+                          <span className="hidden sm:inline">Tendências</span>
+                          <span className="sm:hidden">Trend</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="performance"
+                          className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-purple-50 hover:text-purple-700"
+                        >
+                          <Target className="w-3 h-3" />
+                          <span className="hidden sm:inline">Performance</span>
+                          <span className="sm:hidden">Perf</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="timeline"
+                          className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-rose-50 hover:text-rose-700"
+                        >
+                          <Clock className="w-3 h-3" />
+                          <span className="hidden sm:inline">Ticket</span>
+                          <span className="sm:hidden">Time</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="comparison"
+                          className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-orange-50 hover:text-orange-700"
+                        >
+                          <Activity className="w-3 h-3" />
+                          IA
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="assignee-comparison"
+                          className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-cyan-50 hover:text-cyan-700"
+                        >
+                          <Users className="w-3 h-3" />
+                          Responsáveis
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="github-metrics"
+                          className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-gray-500 data-[state=active]:to-gray-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-gray-50 hover:text-gray-700"
+                        >
+                          <Github className="w-3 h-3" />
+                          GitHub
+                        </TabsTrigger>
+                      </TabsList>
 
-                    </TabsList>
+                      <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden">
+                        <TabsContent
+                          value="scatterplot"
+                          className="h-full m-0 p-3 overflow-auto"
+                        >
+                          <CycleTimeScatterplot data={filteredData} />
+                        </TabsContent>
 
-                    <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden">
-                      <TabsContent
-                        value="scatterplot"
-                        className="h-full m-0 p-3 overflow-auto"
-                      >
-                        <CycleTimeScatterplot data={filteredData} />
-                      </TabsContent>
+                        <TabsContent value="trends" className="h-full m-0 p-3 overflow-auto">
+                          <TrendChart data={filteredData} filters={filters} />
+                        </TabsContent>
 
-                      <TabsContent value="trends" className="h-full m-0 p-3 overflow-auto">
-                        <TrendChart data={filteredData} filters={filters} />
-                      </TabsContent>
+                        <TabsContent
+                          value="performance"
+                          className="h-full m-0 p-3 overflow-auto"
+                        >
+                          <PerformanceChart data={filteredData} />
+                        </TabsContent>
 
-                      <TabsContent
-                        value="performance"
-                        className="h-full m-0 p-3 overflow-auto"
-                      >
-                        <PerformanceChart data={filteredData} />
-                      </TabsContent>
+                        <TabsContent
+                          value="timeline"
+                          className="h-full m-0 p-3 overflow-auto"
+                        >
+                          <IssueTimeline data={filteredData} />
+                        </TabsContent>
 
-                      <TabsContent
-                        value="timeline"
-                        className="h-full m-0 p-3 overflow-auto"
-                      >
-                        <IssueTimeline data={filteredData} />
-                      </TabsContent>
+                        <TabsContent
+                          value="comparison"
+                          className="h-full m-0 p-3 overflow-auto"
+                        >
+                          <LabelComparison
+                            data={filteredData}
+                            iaKeys={iaKeys}
+                          />
+                        </TabsContent>
 
-                      <TabsContent
-                        value="comparison"
-                        className="h-full m-0 p-3 overflow-auto"
-                      >
-                        <LabelComparison
-                          data={filteredData}
-                          iaKeys={iaKeys}
-                        />
-                      </TabsContent>
+                        <TabsContent
+                          value="assignee-comparison"
+                          className="h-full m-0 p-3 overflow-auto"
+                        >
+                          <AssigneeComparison data={filteredData} />
+                        </TabsContent>
 
-                      <TabsContent
-                        value="assignee-comparison"
-                        className="h-full m-0 p-3 overflow-auto"
-                      >
-                        <AssigneeComparison data={filteredData} />
-                      </TabsContent>
+                        <TabsContent
+                          value="github-metrics"
+                          className="h-full m-0 p-3 overflow-auto"
+                        >
+                          <GithubMetrics 
+                            data={filteredData}
+                          />
+                        </TabsContent>
 
-                      <TabsContent
-                        value="github-metrics"
-                        className="h-full m-0 p-3 overflow-auto"
-                      >
-                        <GithubMetrics 
-                          data={filteredData}
-                        />
-                      </TabsContent>
-
-                      <TabsContent
-                        value="tickets"
-                        className="h-full m-0 p-3 overflow-auto"
-                      >
-                        <TicketList data={filteredData} projectKey={projectKey} />
-                      </TabsContent>
+                        <TabsContent
+                          value="tickets"
+                          className="h-full m-0 p-3 overflow-auto"
+                        >
+                          <TicketList data={filteredData} projectKey={projectKey} />
+                        </TabsContent>
+                      </div>
                     </div>
                   </Tabs>
                 </div>
