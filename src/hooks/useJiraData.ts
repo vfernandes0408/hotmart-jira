@@ -37,6 +37,30 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       0
     );
 
+    const statusHistory = (apiIssue.changelog?.histories || [])
+      .filter(history => history.items.some(item => item.field === 'status'))
+      .map(history => ({
+        status: history.items.find(item => item.field === 'status')?.toString || '',
+        date: history.created,
+        from: history.items.find(item => item.field === 'status')?.fromString || '',
+        author: history.author.displayName
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Encontrar quando começou o desenvolvimento (status "Developing" ou "In Progress")
+    const developmentStart = statusHistory.find(
+      history => history.status === 'Developing' || history.status === 'In Progress'
+    );
+
+    // Encontrar quando foi concluído (status "Done" ou "Closed" ou "Resolved")
+    const developmentEnd = statusHistory.find(
+      history => ['Done', 'Closed', 'Resolved'].includes(history.status)
+    );
+
+    const cycleTime = (developmentStart && developmentEnd)
+      ? Math.ceil((new Date(developmentEnd.date).getTime() - new Date(developmentStart.date).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
     const mappedIssue = {
       id: apiIssue.key,
       summary: apiIssue.fields.summary || '',
@@ -46,21 +70,15 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       assigneeEmail: apiIssue.fields.assignee?.emailAddress || '',
       created: apiIssue.fields.created,
       resolved: apiIssue.fields.resolutiondate || null,
+      resolutiondate: apiIssue.fields.resolutiondate || null,
       labels: apiIssue.fields.labels || [],
       project: apiIssue.fields.project?.key || '',
       storyPoints: storyPoints,
-      cycleTime: apiIssue.fields.resolutiondate
+      cycleTime: cycleTime,
+      leadTime: apiIssue.fields.resolutiondate
         ? Math.ceil((new Date(apiIssue.fields.resolutiondate).getTime() - new Date(apiIssue.fields.created).getTime()) / (1000 * 60 * 60 * 24))
         : 0,
-      leadTime: 0,
-      statusHistory: (apiIssue.changelog?.histories || [])
-        .filter(history => history.items.some(item => item.field === 'status'))
-        .map(history => ({
-          status: history.items.find(item => item.field === 'status')?.toString || '',
-          date: history.created,
-          from: history.items.find(item => item.field === 'status')?.fromString || '',
-          author: history.author.displayName
-        })),
+      statusHistory: statusHistory,
       comments: apiIssue.fields.comment?.comments || []
     };
 

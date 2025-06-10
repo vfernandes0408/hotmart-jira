@@ -27,6 +27,7 @@ export interface JiraIssue {
   storyPoints: number;
   created: string;
   resolved: string | null;
+  resolutiondate: string | null;
   assignee: string;
   assigneeEmail: string;
   project: string;

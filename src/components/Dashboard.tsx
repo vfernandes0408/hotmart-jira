@@ -674,7 +674,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                           size="sm"
                           onClick={() => {
                             // Resetar todos os filtros, incluindo datas
-                            setFilters({
+                            const newFilters = {
                               issueType: "",
                               status: "",
                               assignee: "",
@@ -683,7 +683,14 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                                 start: "",
                                 end: "",
                               },
-                            });
+                            };
+                            setFilters(newFilters);
+                            // Reprocessar dados com os filtros limpos
+                            handleFiltersChange(newFilters);
+                            // Forçar atualização dos dados
+                            setFilteredData([...jiraData]);
+                            // Atualizar última atualização
+                            setLastUpdate(new Date());
                           }}
                           className="flex items-center gap-1.5 text-xs px-3 rounded-lg transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
                         >

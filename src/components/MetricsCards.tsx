@@ -21,9 +21,29 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
       };
     }
 
-    const completedIssues = data.filter(item => item.resolved);
+    // Considerar uma issue como completada se tiver resolutiondate ou status de conclusão
+    const completedIssues = data.filter(item => 
+      item.resolutiondate || 
+      ['Done', 'Closed', 'Resolved'].includes(item.status)
+    );
+    
     const cycleTimes = completedIssues.map(item => item.cycleTime).filter(Boolean);
-    const leadTimes = completedIssues.map(item => item.leadTime).filter(Boolean);
+    const leadTimes = completedIssues.map(item => {
+      if (!item.created || !item.resolutiondate) {
+        // Se não tiver resolutiondate mas tiver status de conclusão, usar a data mais recente
+        if (['Done', 'Closed', 'Resolved'].includes(item.status)) {
+          const lastStatusChange = item.statusHistory
+            .filter(history => ['Done', 'Closed', 'Resolved'].includes(history.status))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+          
+          if (lastStatusChange) {
+            return Math.ceil((new Date(lastStatusChange.date).getTime() - new Date(item.created).getTime()) / (1000 * 60 * 60 * 24));
+          }
+        }
+        return 0;
+      }
+      return Math.ceil((new Date(item.resolutiondate).getTime() - new Date(item.created).getTime()) / (1000 * 60 * 60 * 24));
+    }).filter(time => time > 0);
     
     const avgCycleTime = cycleTimes.length > 0 
       ? cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length 
@@ -37,9 +57,24 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    const recentCompletions = completedIssues.filter(item => 
-      item.resolved && new Date(item.resolved) >= thirtyDaysAgo
-    );
+    const recentCompletions = completedIssues.filter(item => {
+      if (item.resolutiondate && new Date(item.resolutiondate) >= thirtyDaysAgo) {
+        return true;
+      }
+      
+      // Se não tiver resolutiondate mas tiver status de conclusão, verificar a data da última mudança de status
+      if (['Done', 'Closed', 'Resolved'].includes(item.status)) {
+        const lastStatusChange = item.statusHistory
+          .filter(history => ['Done', 'Closed', 'Resolved'].includes(history.status))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        
+        if (lastStatusChange && new Date(lastStatusChange.date) >= thirtyDaysAgo) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
 
     return {
       totalIssues: data.length,
