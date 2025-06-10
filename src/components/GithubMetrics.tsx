@@ -6,7 +6,7 @@ import { useApiKeys } from '@/hooks/useApiKeys';
 import { toast } from 'sonner';
 import { JiraIssue } from '@/types/jira';
 import { useGithubBulkData } from '@/hooks/useGithubQuery';
-import { format } from 'date-fns';
+import { format, startOfMonth, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Collapsible,
@@ -31,8 +31,12 @@ interface GithubData {
 const GithubMetrics: React.FC<GithubMetricsProps> = ({ data }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [githubData, setGithubData] = useState<GithubData | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const { isConfigured } = useApiKeys();
+  
+  // Inicializa as datas com o primeiro dia do mês e ontem
+  const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState<string>(format(subDays(new Date(), 1), 'yyyy-MM-dd'));
   
   console.log('GithubMetrics render - Initial data:', data);
   
@@ -81,7 +85,10 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data }) => {
     setIsLoading(true);
     try {
       console.log('Starting mutation');
-      const result = await mutation.mutateAsync();
+      const result = await mutation.mutateAsync({
+        startDate: new Date(startDate),
+        endDate: new Date(endDate)
+      });
       console.log('Mutation result:', result);
       setGithubData(result);
       toast.success('Dados do GitHub importados com sucesso!');

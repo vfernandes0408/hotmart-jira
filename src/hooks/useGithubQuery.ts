@@ -25,6 +25,11 @@ interface GithubData {
   lastUpdated?: string;
 }
 
+interface GithubQueryParams {
+  startDate: Date;
+  endDate: Date;
+}
+
 const fetchGithubUserData = async (email: string): Promise<GithubUser | null> => {
   try {
     // Busca usuário do GitHub pelo email
@@ -229,7 +234,7 @@ export const useGithubBulkData = (emails: string[]) => {
 
   // Mutation para atualizar dados
   const mutation = useMutation({
-    mutationFn: async (): Promise<GithubData> => {
+    mutationFn: async (params: GithubQueryParams): Promise<GithubData> => {
       console.log('Starting mutation with emails:', uniqueEmails);
       
       if (uniqueEmails.length === 0) {
@@ -253,9 +258,37 @@ export const useGithubBulkData = (emails: string[]) => {
             console.log('Fetched data for email:', email, userData);
             
             if (userData) {
-              queryClient.setQueryData(['githubUser', email], userData);
+              // Buscar métricas específicas do período
+              const [commitsResponse, prsResponse, reviewsResponse] = await Promise.all([
+                fetch(`https://api.github.com/search/commits?q=author:${userData.name}+committer-date:${params.startDate.toISOString()}..${params.endDate.toISOString()}`, {
+                  headers: githubHeaders
+                }),
+                fetch(`https://api.github.com/search/issues?q=author:${userData.name}+type:pr+created:${params.startDate.toISOString()}..${params.endDate.toISOString()}`, {
+                  headers: githubHeaders
+                }),
+                fetch(`https://api.github.com/search/issues?q=reviewed-by:${userData.name}+type:pr+created:${params.startDate.toISOString()}..${params.endDate.toISOString()}`, {
+                  headers: githubHeaders
+                })
+              ]);
+
+              const [commitsData, prsData, reviewsData] = await Promise.all([
+                commitsResponse.json(),
+                prsResponse.json(),
+                reviewsResponse.json()
+              ]);
+
+              const updatedUserData = {
+                ...userData,
+                commits: commitsData.total_count || 0,
+                prsCreated: prsData.total_count || 0,
+                prsReviewed: reviewsData.total_count || 0,
+                lastUpdated: new Date().toISOString()
+              };
+
+              queryClient.setQueryData(['githubUser', email], updatedUserData);
+              return updatedUserData;
             }
-            return userData;
+            return null;
           } catch (error) {
             console.error(`Error fetching data for ${email}:`, error);
             const cachedData = queryClient.getQueryData<GithubUser>(['githubUser', email]);
