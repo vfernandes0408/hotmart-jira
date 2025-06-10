@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, HelpCircle } from 'lucide-react';
+import { TrendingUp, HelpCircle, Download } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface TrendChartProps {
   data: JiraIssue[];
@@ -27,6 +30,36 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 
 const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
   const [showAverage, setShowAverage] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  const handleExportPDF = async () => {
+    if (!chartRef.current) return;
+
+    try {
+      // Capturar o elemento do gráfico
+      const canvas = await html2canvas(chartRef.current, {
+        scale: 2, // Melhor qualidade
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      // Criar novo documento PDF
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+
+      // Adicionar a imagem do gráfico ao PDF
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+
+      // Salvar o PDF
+      pdf.save('analise-tendencias.pdf');
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+    }
+  };
 
   // Processar dados para criar tendência por período
   const processDataForTrend = () => {
@@ -185,8 +218,8 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
             <TrendingUp className="w-5 h-5 text-blue-600" />
             Análise de Tendências
           </CardTitle>
-          {hasAssignees && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            {hasAssignees && (
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="show-average" 
@@ -195,13 +228,22 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                 />
                 <Label htmlFor="show-average" className="text-sm">Mostrar Média Geral</Label>
               </div>
-            </div>
-          )}
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:from-blue-600 hover:to-blue-700"
+              onClick={handleExportPDF}
+            >
+              <Download className="w-3 h-3" />
+              Exportar PDF
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {monthlyData.length > 0 ?
-          <div className="space-y-6">
+        {monthlyData.length > 0 ? (
+          <div ref={chartRef} className="space-y-8 bg-white p-4 rounded-lg">
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <h4 className="text-sm font-medium">Cycle Time Médio por Mês</h4>
@@ -211,8 +253,8 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
                   </HoverCardTrigger>
                   <HoverCardContent className="w-80">
                     <div className="space-y-2">
-                      <p className="text-sm">O Cycle Time é o tempo médio que uma tarefa leva para ser concluída, medido em dias.</p>
-                      <p className="text-sm">Este gráfico mostra a evolução do Cycle Time médio ao longo dos meses, permitindo identificar tendências de aumento ou diminuição no tempo de conclusão das tarefas.</p>
+                      <p className="text-sm">O Cycle Time representa o tempo médio que uma tarefa leva para ser concluída, desde o início do desenvolvimento até a conclusão.</p>
+                      <p className="text-sm">Um Cycle Time menor indica um fluxo de trabalho mais eficiente.</p>
                     </div>
                   </HoverCardContent>
                 </HoverCard>
@@ -344,11 +386,11 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
               </ResponsiveContainer>
             </div>
           </div>
-          :
+        ) : (
           <div className="text-center text-gray-500">
             <p>Nenhum dado disponível</p>
           </div>
-        }
+        )}
       </CardContent>
     </Card>
   );

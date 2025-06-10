@@ -215,14 +215,7 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Detalhes do Ticket</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsDialogOpen(false)}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              
             </DialogTitle>
           </DialogHeader>
 
@@ -279,32 +272,7 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
 
               {/* Ticket Details */}
               <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      {selectedIssue.id}
-                    </h2>
-                    <p className="text-sm text-gray-600 break-words">
-                      {selectedIssue.summary}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className={`px-2 py-1 rounded-full text-xs ${
-                      selectedIssue.status === 'Done' ? 'bg-green-100 text-green-700' :
-                      selectedIssue.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {selectedIssue.status}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsDialogOpen(false)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+
 
                 {/* Cycle Time */}
                 {changelog.length > 0 && (
