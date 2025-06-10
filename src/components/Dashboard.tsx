@@ -149,6 +149,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
   const [projectKey, setProjectKey] = useState<string>("");
   const [sessionTimer, setSessionTimer] = useState<NodeJS.Timeout | null>(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [showMetrics, setShowMetrics] = useState(true);
   const [filters, setFilters] = useState<Filters>({
     issueType: "",
     status: "",
@@ -593,7 +594,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
             <div className="h-full flex flex-col gap-2 lg:gap-4">
               {/* Metrics Cards - Responsive */}
               <div className="flex-shrink-0">
-                <MetricsCards data={filteredData} />
+                {showMetrics && <MetricsCards data={filteredData} />}
               </div>
 
               {/* Main Dashboard Content - Responsive flex layout */}
@@ -669,34 +670,45 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                           dateRange={filters.dateRange}
                           onDateRangeChange={handleDateRangeChange}
                         />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            // Resetar todos os filtros, incluindo datas
-                            const newFilters = {
-                              issueType: "",
-                              status: "",
-                              assignee: "",
-                              labels: "",
-                              dateRange: {
-                                start: "",
-                                end: "",
-                              },
-                            };
-                            setFilters(newFilters);
-                            // Reprocessar dados com os filtros limpos
-                            handleFiltersChange(newFilters);
-                            // Forçar atualização dos dados
-                            setFilteredData([...jiraData]);
-                            // Atualizar última atualização
-                            setLastUpdate(new Date());
-                          }}
-                          className="flex items-center gap-1.5 text-xs px-3 rounded-lg transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          Limpar Filtros
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowMetrics(!showMetrics)}
+                            className="flex items-center gap-1.5 text-xs px-3 rounded-lg transition-all duration-200 hover:bg-gray-50 hover:text-gray-600 hover:border-gray-200"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                            {showMetrics ? "Ocultar Métricas" : "Exibir Métricas"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Resetar todos os filtros, incluindo datas
+                              const newFilters = {
+                                issueType: "",
+                                status: "",
+                                assignee: "",
+                                labels: "",
+                                dateRange: {
+                                  start: "",
+                                  end: "",
+                                },
+                              };
+                              setFilters(newFilters);
+                              // Reprocessar dados com os filtros limpos
+                              handleFiltersChange(newFilters);
+                              // Forçar atualização dos dados
+                              setFilteredData([...jiraData]);
+                              // Atualizar última atualização
+                              setLastUpdate(new Date());
+                            }}
+                            className="flex items-center gap-1.5 text-xs px-3 rounded-lg transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Limpar Filtros
+                          </Button>
+                        </div>
                       </div>
                       <TabsList className="flex-shrink-0 grid w-full grid-cols-7 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
                         <TabsTrigger
