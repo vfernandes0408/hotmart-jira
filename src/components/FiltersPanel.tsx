@@ -115,6 +115,23 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
     onFiltersChange(newFilters);
   };
 
+  const handleStatusChange = (status: string, checked: boolean) => {
+    const currentStatuses = Array.isArray(filters.status)
+      ? filters.status
+      : filters.status ? [filters.status] : [];
+    let newStatuses: string[];
+    if (checked) {
+      newStatuses = [...currentStatuses, status];
+    } else {
+      newStatuses = currentStatuses.filter(s => s !== status);
+    }
+    const newFilters = {
+      ...filters,
+      status: newStatuses.length === 0 ? '' : newStatuses
+    };
+    onFiltersChange(newFilters);
+  };
+
   const clearFilters = () => {
     onFiltersChange({
       issueType: '',
@@ -265,17 +282,30 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersCha
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-1 mt-2">
-                <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value)}>
-                  <SelectTrigger className="h-8 text-xs transition-all duration-200 focus:ring-2 focus:ring-blue-500">
-                    <SelectValue placeholder="Selecionar status" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px] overflow-y-auto">
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    {uniqueStatuses.map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="max-h-[200px] overflow-y-auto pr-2">
+                  {uniqueStatuses.map(status => {
+                    const currentStatuses = Array.isArray(filters.status)
+                      ? filters.status
+                      : filters.status ? [filters.status] : [];
+                    const isChecked = currentStatuses.includes(status);
+                    return (
+                      <div key={status} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`status-${status}`}
+                          checked={isChecked}
+                          onCheckedChange={(checked) => handleStatusChange(status, !!checked)}
+                          className="h-4 w-4"
+                        />
+                        <Label
+                          htmlFor={`status-${status}`}
+                          className="text-xs cursor-pointer flex-1"
+                        >
+                          {status}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
               </CollapsibleContent>
             </div>
           </Collapsible>

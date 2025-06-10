@@ -38,7 +38,7 @@ export interface JiraIssue {
 
 export interface Filters {
   issueType: string | string[];
-  status: string;
+  status: string | string[];
   assignee: string | string[];
   labels: string | string[];
   dateRange: {

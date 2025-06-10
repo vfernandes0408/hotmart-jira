@@ -343,8 +343,11 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     }
 
     if (newFilters.status) {
-      filtered = filtered.filter(
-        (item: JiraIssue) => item.status === newFilters.status
+      const statuses = Array.isArray(newFilters.status)
+        ? newFilters.status
+        : [newFilters.status];
+      filtered = filtered.filter((item: JiraIssue) =>
+        statuses.includes(item.status)
       );
     }
 
@@ -532,10 +535,26 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                       </div>
                     </div>
                   )}
+                  <div className="hidden lg:flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="date"
+                        value={filters.dateRange.start}
+                        onChange={(e) => handleDateRangeChange("start", e.target.value)}
+                        className="h-8 text-xs w-36"
+                      />
+                      <span className="text-xs text-zinc-400">até</span>
+                      <Input
+                        type="date"
+                        value={filters.dateRange.end}
+                        onChange={(e) => handleDateRangeChange("end", e.target.value)}
+                        className="h-8 text-xs w-36"
+                      />
+                    </div>
+                  </div>
                   <Button
                     onClick={handleRefreshData}
                     variant="outline"
-                    size="sm"
                     disabled={isRefreshing}
                     className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
                       isRefreshing
