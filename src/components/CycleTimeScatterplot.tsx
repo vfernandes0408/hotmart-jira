@@ -2,10 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from 'recharts';
-import { Clock, TrendingUp, BarChart3 } from 'lucide-react';
+import { Clock, TrendingUp, BarChart3, Calendar } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
 import { JiraLink, renderTextWithJiraLinks } from '@/utils/jiraLinks';
 import { format } from 'date-fns';
+import { ChartContainer } from '@/components/ui/chart-container';
 
 interface CycleTimeScatterplotProps {
   data: JiraIssue[];
@@ -156,47 +157,33 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filte
   };
 
   return (
-    <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
-            Cycle Time Scatterplot
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-blue-50 text-blue-700">
-              {chartData.length} issues
-            </Badge>
-          </div>
-        </div>
-        
-
-      </CardHeader>
-      
-      <CardContent>
-        {/* Estatísticas */}
-        {statistics && (
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-              <div className="text-2xl font-bold text-blue-700">{statistics.avg}</div>
-              <div className="text-sm text-blue-600">Cycle Time Médio (dias)</div>
-            </div>
-            <div className="text-center p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-              <div className="text-lg font-bold text-green-700">{statistics.dateRange.start}</div>
-              <div className="text-sm text-green-600">Primeira Resolução</div>
-            </div>
-            <div className="text-center p-3 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
-              <div className="text-lg font-bold text-orange-700">{statistics.dateRange.end}</div>
-              <div className="text-sm text-orange-600">Última Resolução</div>
-            </div>
-          </div>
-        )}
-
+    <ChartContainer
+      title="Cycle Time Scatterplot"
+      icon={<BarChart3 className="w-5 h-5" />}
+      metrics={statistics ? [
+        {
+          label: "Cycle Time Médio",
+          value: `${statistics.avg}d`,
+          icon: <Clock className="w-4 h-4" />,
+          bgColor: "bg-blue-50",
+          textColor: "text-blue-700"
+        },
+        {
+          label: "Primeira Resolução",
+          value: statistics.dateRange.start,
+          icon: <Calendar className="w-4 h-4" />,
+          bgColor: "bg-green-50",
+          textColor: "text-green-700"
+        }
+      ] : undefined}
+      badgeText={`${chartData.length} issues`}
+    >
+      <div className="flex flex-col h-full">
         {/* Legenda dos Percentis */}
         {statistics && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex-none p-3 bg-gray-50 rounded-lg mb-4">
             <h4 className="text-sm font-semibold text-gray-700 mb-2">Legenda - Percentis de Cycle Time:</h4>
-            <div className="flex flex-wrap gap-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10B981' }}></div>
                 <span>≤ P50 ({statistics.p50}d)</span>
@@ -218,9 +205,9 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filte
         )}
         
         {/* Gráfico */}
-        <div className="h-96">
+        <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart data={chartData}>
+            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
               <XAxis 
                 type="number" 
@@ -281,18 +268,18 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filte
             </ScatterChart>
           </ResponsiveContainer>
         </div>
-        
-        {chartData.length === 0 && (
-          <div className="h-96 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-lg font-medium">Nenhum dado disponível</p>
-              <p className="text-sm">Conecte-se ao Jira ou ajuste os filtros</p>
-            </div>
+      </div>
+      
+      {chartData.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-white/80">
+          <div className="text-center">
+            <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-lg font-medium">Nenhum dado disponível</p>
+            <p className="text-sm">Conecte-se ao Jira ou ajuste os filtros</p>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </ChartContainer>
   );
 };
 

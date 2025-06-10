@@ -30,6 +30,7 @@ import {
   Sparkles,
   Calendar,
   RotateCcw,
+  X,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ import AssigneeComparison from "./AssigneeComparison";
 import GithubMetrics from "./GithubMetrics";
 import { JiraIssue, Filters } from "@/types/jira";
 import { useApiKeys } from "@/hooks/useApiKeys";
+import { cn } from "@/lib/utils";
 
 const SESSION_KEY = "jira_dashboard_session";
 const SESSION_DURATION = 10 * 60 * 1000; // 10 minutos em millisegundos
@@ -160,6 +162,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
       end: "",
     },
   });
+  const [showFilters, setShowFilters] = useState(true);
 
   // Funções para gerenciar sessão
   const saveSession = useCallback((data: JiraIssue[], projectKey: string) => {
@@ -452,6 +455,35 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     handleFiltersChange(newFilters);
   };
 
+  const handleToggleMetrics = () => {
+    setShowMetrics(!showMetrics);
+  };
+
+  const handleClearFilters = () => {
+    const newFilters = {
+      issueType: "",
+      status: "",
+      assignee: "",
+      labels: "",
+      dateRange: {
+        start: "",
+        end: "",
+      },
+    };
+    setFilters(newFilters);
+    handleFiltersChange(newFilters);
+    setFilteredData([...jiraData]);
+    setLastUpdate(new Date());
+  };
+
+  const handleToggleFilters = () => {
+    setShowFilters(!showFilters);
+  };
+
+  const handleOpenAIClick = () => {
+    onIaClick("openai");
+  };
+
   return (
     <div className="h-screen bg-gradient-to-br from-zinc-50 via-neutral-50 to-stone-100 flex flex-col overflow-hidden">
       {/* Header - Responsive */}
@@ -600,231 +632,149 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
               {/* Main Dashboard Content - Responsive flex layout */}
               <div className="flex-1 flex gap-3 min-h-0 overflow-hidden">
                 {/* Filters Panel - Collapsible sidebar */}
-                <div className={`flex flex-col transition-all duration-300 ${isSidebarVisible ? 'w-full md:w-80' : 'w-0'}`}>
-                  <div className={`bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm h-full overflow-hidden transition-all duration-300 ${isSidebarVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                    <div className="p-3 border-b border-zinc-200/50">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-zinc-800 flex items-center gap-1.5">
-                          <Filter className="w-3.5 h-3.5" />
-                          Filtros
-                        </h3>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsSidebarVisible(false)}
-                          className="h-6 w-6 p-0 hover:bg-zinc-100"
-                          title="Ocultar filtros (Ctrl/Cmd + B)"
-                        >
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="h-[calc(100%-3rem)] overflow-hidden">
-                      <FiltersPanel
-                        data={jiraData}
-                        filters={filters}
-                        onFiltersChange={handleFiltersChange}
-                        projectKey={projectKey}
-                        onRefresh={handleRefreshData}
-                      />
-                    </div>
-                  </div>
+                <div className={cn(
+                  "bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden transition-all duration-300",
+                  showFilters ? "w-72" : "w-12"
+                )}>
+                  <FiltersPanel
+                    data={jiraData}
+                    filters={filters}
+                    onFiltersChange={handleFiltersChange}
+                    showFilters={showFilters}
+                    onToggleFilters={handleToggleFilters}
+                  />
                 </div>
 
-                {/* Toggle Button when sidebar is hidden */}
-                {!isSidebarVisible && (
-                  <div className="flex-shrink-0 mr-3">
-                    <div className="relative">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsSidebarVisible(true)}
-                        className="h-10 w-10 p-0 bg-white/80 backdrop-blur-sm border-zinc-200/50 hover:bg-white shadow-sm"
-                        title="Mostrar filtros (Ctrl/Cmd + B)"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                      {/* Indicador de filtros ativos */}
-                      {(filters.issueType || 
-                        (Array.isArray(filters.issueType) ? filters.issueType.length > 0 : filters.issueType) ||
-                        filters.status || 
-                        (Array.isArray(filters.assignee) ? filters.assignee.length > 0 : filters.assignee) ||
-                        filters.labels || 
-                        filters.dateRange.start || 
-                        filters.dateRange.end) && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Charts Area - Optimized for remaining space */}
-                <div className={`flex-1 flex-col min-h-0 ${isSidebarVisible ? 'hidden md:flex' : 'flex'}`}>
-                  <Tabs
-                    defaultValue="scatterplot"
-                    className="flex flex-col h-full"
-                  >
-                    <div className="flex flex-col gap-4 mb-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <DateRangeFilter
-                          dateRange={filters.dateRange}
-                          onDateRangeChange={handleDateRangeChange}
-                        />
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowMetrics(!showMetrics)}
-                            className="flex items-center gap-1.5 text-xs px-3 rounded-lg transition-all duration-200 hover:bg-gray-50 hover:text-gray-600 hover:border-gray-200"
-                          >
-                            <Activity className="w-3.5 h-3.5" />
-                            {showMetrics ? "Ocultar Métricas" : "Exibir Métricas"}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              // Resetar todos os filtros, incluindo datas
-                              const newFilters = {
-                                issueType: "",
-                                status: "",
-                                assignee: "",
-                                labels: "",
-                                dateRange: {
-                                  start: "",
-                                  end: "",
-                                },
-                              };
-                              setFilters(newFilters);
-                              // Reprocessar dados com os filtros limpos
-                              handleFiltersChange(newFilters);
-                              // Forçar atualização dos dados
-                              setFilteredData([...jiraData]);
-                              // Atualizar última atualização
-                              setLastUpdate(new Date());
-                            }}
-                            className="flex items-center gap-1.5 text-xs px-3 rounded-lg transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Limpar Filtros
-                          </Button>
-                        </div>
-                      </div>
-                      <TabsList className="flex-shrink-0 grid w-full grid-cols-7 mb-2 bg-gradient-to-r from-zinc-100 to-zinc-50 backdrop-blur-sm h-10 p-1 rounded-xl border border-zinc-200/50">
-                        <TabsTrigger
-                          value="scatterplot"
-                          className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-blue-50 hover:text-blue-700"
-                        >
-                          <BarChart3 className="w-3 h-3" />
-                          <span className="hidden sm:inline">Cycle Time</span>
-                          <span className="sm:hidden">Cycle</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="trends"
-                          className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700"
-                        >
-                          <TrendingUp className="w-3 h-3" />
-                          <span className="hidden sm:inline">Tendências</span>
-                          <span className="sm:hidden">Trend</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="performance"
-                          className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-purple-50 hover:text-purple-700"
-                        >
-                          <Target className="w-3 h-3" />
-                          <span className="hidden sm:inline">Performance</span>
-                          <span className="sm:hidden">Perf</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="timeline"
-                          className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-rose-50 hover:text-rose-700"
-                        >
-                          <Clock className="w-3 h-3" />
-                          <span className="hidden sm:inline">Ticket</span>
-                          <span className="sm:hidden">Time</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="comparison"
-                          className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-orange-50 hover:text-orange-700"
-                        >
-                          <Activity className="w-3 h-3" />
-                          IA
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="assignee-comparison"
-                          className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-cyan-50 hover:text-cyan-700"
-                        >
-                          <Users className="w-3 h-3" />
-                          Responsáveis
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="github-metrics"
-                          className="hidden sm:flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-gray-500 data-[state=active]:to-gray-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-gray-50 hover:text-gray-700"
-                        >
-                          <Github className="w-3 h-3" />
-                          GitHub
-                        </TabsTrigger>
+                {/* Main Content Area */}
+                <div className="flex-1 flex flex-col min-w-0">
+                  {/* Tabs */}
+                  <Tabs defaultValue="scatterplot" className="flex-1 flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <TabsList className="h-9 lg:h-10">
+                        <TabsTrigger value="scatterplot" className="text-xs lg:text-sm">Cycle Time</TabsTrigger>
+                        <TabsTrigger value="trends" className="text-xs lg:text-sm">Tendências</TabsTrigger>
+                        <TabsTrigger value="performance" className="text-xs lg:text-sm">Performance</TabsTrigger>
+                        <TabsTrigger value="timeline" className="text-xs lg:text-sm">Timeline</TabsTrigger>
+                        <TabsTrigger value="comparison" className="text-xs lg:text-sm">Labels</TabsTrigger>
+                        <TabsTrigger value="assignee-comparison" className="text-xs lg:text-sm">Assignees</TabsTrigger>
+                        <TabsTrigger value="github-metrics" className="text-xs lg:text-sm">GitHub</TabsTrigger>
+                        <TabsTrigger value="tickets" className="text-xs lg:text-sm">Tickets</TabsTrigger>
                       </TabsList>
 
-                      <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden">
-                        <TabsContent
-                          value="scatterplot"
-                          className="h-full m-0 p-3 overflow-auto"
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleToggleMetrics}
+                          className={cn(
+                            "text-xs lg:text-sm",
+                            !showMetrics && "opacity-60"
+                          )}
                         >
-                          <CycleTimeScatterplot data={filteredData} filters={filters} />
-                        </TabsContent>
+                          <Activity className="w-4 h-4 mr-2" />
+                          Métricas
+                        </Button>
 
-                        <TabsContent value="trends" className="h-full m-0 p-3 overflow-auto">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleClearFilters}
+                          className="text-xs lg:text-sm"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Limpar Filtros
+                        </Button>
+
+                        {iaKeys["openai"] && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleOpenAIClick}
+                            className="text-xs lg:text-sm"
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            OpenAI
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Chart Content */}
+                    <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden">
+                      <TabsContent
+                        value="scatterplot"
+                        className="h-full m-0"
+                      >
+                        <CycleTimeScatterplot data={filteredData} filters={filters} />
+                      </TabsContent>
+
+                      <TabsContent 
+                        value="trends" 
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <TrendChart data={filteredData} filters={filters} />
-                        </TabsContent>
+                        </div>
+                      </TabsContent>
 
-                        <TabsContent
-                          value="performance"
-                          className="h-full m-0 p-3 overflow-auto"
-                        >
+                      <TabsContent
+                        value="performance"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <PerformanceChart data={filteredData} filters={filters} />
-                        </TabsContent>
+                        </div>
+                      </TabsContent>
 
-                        <TabsContent
-                          value="timeline"
-                          className="h-full m-0 p-3 overflow-auto"
-                        >
+                      <TabsContent
+                        value="timeline"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <IssueTimeline data={filteredData} />
-                        </TabsContent>
+                        </div>
+                      </TabsContent>
 
-                        <TabsContent
-                          value="comparison"
-                          className="h-full m-0 p-3 overflow-auto"
-                        >
+                      <TabsContent
+                        value="comparison"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <LabelComparison
                             data={filteredData}
                             iaKeys={iaKeys}
                           />
-                        </TabsContent>
+                        </div>
+                      </TabsContent>
 
-                        <TabsContent
-                          value="assignee-comparison"
-                          className="h-full m-0 p-3 overflow-auto"
-                        >
+                      <TabsContent
+                        value="assignee-comparison"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <AssigneeComparison data={filteredData} />
-                        </TabsContent>
+                        </div>
+                      </TabsContent>
 
-                        <TabsContent
-                          value="github-metrics"
-                          className="h-full m-0 p-3 overflow-auto"
-                        >
+                      <TabsContent
+                        value="github-metrics"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <GithubMetrics 
                             data={filteredData}
                           />
-                        </TabsContent>
+                        </div>
+                      </TabsContent>
 
-                        <TabsContent
-                          value="tickets"
-                          className="h-full m-0 p-3 overflow-auto"
-                        >
+                      <TabsContent
+                        value="tickets"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <TicketList data={filteredData} projectKey={projectKey} />
-                        </TabsContent>
-                      </div>
+                        </div>
+                      </TabsContent>
                     </div>
                   </Tabs>
                 </div>

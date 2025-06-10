@@ -16,9 +16,11 @@ interface FiltersPanelProps {
   onFiltersChange: (filters: Filters) => void;
   projectKey?: string;
   onRefresh?: () => void;
+  showFilters: boolean;
+  onToggleFilters: () => void;
 }
 
-const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersChange, projectKey, onRefresh }) => {
+const FiltersPanel: React.FC<FiltersPanelProps> = ({ data, filters, onFiltersChange, projectKey, onRefresh, showFilters, onToggleFilters }) => {
   const [issueTypeOpen, setIssueTypeOpen] = useState(true);
   const [labelsOpen, setLabelsOpen] = useState(true);
   const [statusOpen, setStatusOpen] = useState(true);
