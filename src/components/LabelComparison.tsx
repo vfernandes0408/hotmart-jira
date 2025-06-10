@@ -311,7 +311,7 @@ Por favor, forneça insights sobre:
                   Apenas issues e labels (
                   {availableLabels.length} labels)
                 </Badge>
-                {comparisonData && (
+                {comparisonData && iaKeys["openai"] && (
                   <Button
                     onClick={handleAiClick}
                     disabled={isGeneratingInsights}
@@ -326,7 +326,7 @@ Por favor, forneça insights sobre:
                     ) : (
                       <>
                         <Brain className="w-3 h-3 mr-1" />
-                        IA
+                      Gerar com IA
                       </>
                     )}
                   </Button>
@@ -335,7 +335,7 @@ Por favor, forneça insights sobre:
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 h-[calc(100vh-13rem)] overflow-y-auto">
             {/* Seletores de Labels */}
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -448,23 +448,36 @@ Por favor, forneça insights sobre:
 
             {/* Gráfico Comparativo */}
             {chartData.length > 0 && (
-              <div className="h-80">
+              <div className="flex flex-col flex-1 mb-8" style={{ height: 'calc(100vh - 40rem)' }}>
                 <h4 className="text-lg font-semibold mb-4">
                   Comparação Visual
                 </h4>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis
-                      dataKey="metric"
-                      tick={{ fill: "#6B7280", fontSize: 12 }}
-                    />
-                    <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey={selectedLabels1.join(", ")} fill="#3B82F6" />
-                    <Bar dataKey={selectedLabels2.join(", ")} fill="#10B981" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="flex-1 min-h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis
+                        dataKey="metric"
+                        tick={{ fill: "#6B7280", fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                        interval={0}
+                      />
+                      <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'white',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey={selectedLabels1.join(", ")} fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={selectedLabels2.join(", ")} fill="#10B981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
 
