@@ -96,6 +96,49 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
         serverUrl: credentials.serverUrl,
       });
       setChangelog(fetchedChangelog);
+
+      // Atualizar o selectedIssue com as métricas recalculadas
+      if (selectedIssue) {
+        // Encontrar a data de início (primeira vez que entrou em desenvolvimento)
+        const developmentStatuses = ['Em Desenvolvimento', 'Developing', 'In Progress', 'Em Progresso'];
+        const startDate = fetchedChangelog
+          .sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime())
+          .find(change => {
+            const statusChange = change.items.find(item => item.field === 'status');
+            return statusChange && (
+              statusChange.toString === 'Em Desenvolvimento' || 
+              developmentStatuses.includes(statusChange.toString)
+            );
+          })?.created || null;
+
+        // Encontrar a data de conclusão
+        const completionStatuses = ['Done', 'Closed', 'Resolved', 'Concluído', 'Finalizado'];
+        const completionChange = [...fetchedChangelog]
+          .reverse()
+          .find(change => {
+            const statusChange = change.items.find(item => item.field === 'status');
+            return statusChange && completionStatuses.includes(statusChange.toString);
+          });
+
+        const endDate = selectedIssue.resolutiondate || completionChange?.created || null;
+
+        // Calcular Lead Time e Cycle Time
+        const leadTime = endDate
+          ? Math.ceil((new Date(endDate).getTime() - new Date(selectedIssue.created).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        const cycleTime = (startDate && endDate)
+          ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        // Atualizar o selectedIssue com os novos valores
+        setSelectedIssue({
+          ...selectedIssue,
+          startDate,
+          leadTime,
+          cycleTime
+        });
+      }
     } catch (error) {
       toast.error('Erro ao carregar histórico');
       console.error('Erro ao carregar histórico:', error);
@@ -245,138 +288,135 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
         <DialogContent className="max-w-3xl w-[90vw]">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span>Detalhes do Ticket</span>
-              
+              <div className="flex items-center gap-2">
+                <span>{selectedIssue?.id}</span>
+                <Badge variant="outline" className={`text-xs ${getStatusColor(selectedIssue?.status || '')}`}>
+                  {selectedIssue?.status}
+                </Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.open(`https://hotmart.atlassian.net/browse/${selectedIssue?.id}`, '_blank')}
+                className="text-xs"
+              >
+                Abrir no Jira
+              </Button>
             </DialogTitle>
           </DialogHeader>
 
           {selectedIssue && (
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">{selectedIssue.id}</h3>
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    selectedIssue.status === 'Done' ? 'bg-green-100 text-green-700' :
-                    selectedIssue.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
-                    {selectedIssue.status}
-                  </span>
-                </div>
-                <p className="text-gray-600 break-words">{selectedIssue.summary}</p>
-              </div>
-
-              {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <User className="w-4 h-4" />
-                    <span>Responsável: {selectedIssue.assignee}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="space-y-6 py-4">
+              {/* Sumário */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{selectedIssue.summary}</h3>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm text-gray-500 flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    <span>Criado em: {format(new Date(selectedIssue.created), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</span>
-                  </div>
-                  {selectedIssue.resolved && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock className="w-4 h-4" />
-                      <span>Resolvido em: {format(new Date(selectedIssue.resolved), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</span>
-                    </div>
+                    Criado em {format(new Date(selectedIssue.created), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                  </span>
+                  {selectedIssue.assignee && (
+                    <span className="text-sm text-gray-500 flex items-center gap-1">
+                      <User className="w-4 h-4" />
+                      {selectedIssue.assignee}
+                    </span>
                   )}
-                </div>
-                <div className="space-y-2">
                   {selectedIssue.storyPoints > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>Story Points: {selectedIssue.storyPoints}</span>
-                    </div>
-                  )}
-                  {selectedIssue.labels.length > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Tag className="w-4 h-4" />
-                      <span>Labels: {selectedIssue.labels.join(', ')}</span>
-                    </div>
+                    <Badge variant="outline" className="text-sm bg-purple-50 text-purple-700 border-purple-200">
+                      {selectedIssue.storyPoints} pontos
+                    </Badge>
                   )}
                 </div>
               </div>
 
-              {/* Ticket Details */}
-              <div className="space-y-4">
+              {/* Labels */}
+              {selectedIssue.labels && selectedIssue.labels.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                    <Tag className="w-4 h-4" />
+                    Labels
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedIssue.labels.map(label => (
+                      <Badge key={label} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
+              {/* Métricas */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Lead Time */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-600">Lead Time</span>
+                      <AlertCircle className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-bold text-gray-900">
+                        {selectedIssue.leadTime}
+                      </span>
+                      <span className="text-sm text-gray-500 ml-1">dias</span>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* Cycle Time */}
-                {changelog.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Timer className="w-4 h-4" />
-                      <span>Cycle Time:</span>
-                      <Select
-                        value={cycleTimeStartStatus}
-                        onValueChange={setCycleTimeStartStatus}
-                      >
-                        <SelectTrigger className="w-[180px] h-8">
-                          <SelectValue placeholder="Selecione o status inicial" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map(status => (
-                            <SelectItem key={status} value={status}>
-                              {status}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-600">Cycle Time</span>
+                      <Timer className="w-4 h-4 text-gray-400" />
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      {(() => {
-                        const cycleTime = calculateCycleTime(changelog, cycleTimeStartStatus);
-                        if (!cycleTime) {
-                          return <span className="text-gray-500">Não disponível</span>;
-                        }
-                        return (
-                          <span className="font-medium">
-                            {cycleTime.days > 0 ? `${cycleTime.days}d ` : ''}
-                            {cycleTime.hours}h
-                          </span>
-                        );
-                      })()}
+                    <div className="mt-2">
+                      <span className="text-2xl font-bold text-gray-900">
+                        {selectedIssue.cycleTime}
+                      </span>
+                      <span className="text-sm text-gray-500 ml-1">dias</span>
                     </div>
-                  </div>
-                )}
+                  </CardContent>
+                </Card>
+
+                {/* Data de Início */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-600">Início do Desenvolvimento</span>
+                      <History className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-sm text-gray-900">
+                        {selectedIssue.startDate 
+                          ? format(new Date(selectedIssue.startDate), "dd/MM/yyyy", { locale: ptBR })
+                          : 'Não iniciado'}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
-              {/* Ticket History */}
-              <div className="mt-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-4 h-4 text-gray-500" />
-                  <h3 className="text-sm font-medium text-gray-700">Histórico do Ticket</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-auto"
-                    onClick={() => loadChangelog(selectedIssue.id)}
-                    disabled={isLoadingChangelog}
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isLoadingChangelog ? 'animate-spin' : ''}`} />
-                  </Button>
-                </div>
-
-                <div className="max-h-[400px] overflow-y-auto">
-                  {isLoadingChangelog ? (
-                    <div className="text-center py-4 text-gray-500">
-                      Carregando histórico...
-                    </div>
-                  ) : changelog.length === 0 ? (
-                    <div className="text-center py-4 text-gray-500">
-                      Nenhum histórico encontrado.
-                    </div>
-                  ) : (
-                    <StatusTimeline 
-                      changelog={changelog} 
-                      selectedStatus={cycleTimeStartStatus}
-                    />
+              {/* Status Timeline */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  Histórico de Status
+                  {isLoadingChangelog && (
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                   )}
-                </div>
+                </h4>
+  
+                {changelog.length > 0 ? (
+                  <div className="max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                    <StatusTimeline changelog={changelog} />
+                  </div>
+                ) : !isLoadingChangelog && (
+                  <div className="text-sm text-gray-500 text-center py-4">
+                    Nenhuma mudança de status registrada.
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -27,11 +27,13 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filte
       // Verificar se é um objeto válido do Jira
       if (!item || typeof item !== 'object') return false;
       if (!item.id || typeof item.id !== 'string') return false;
-      if (!item.resolved) return false;
+      
+      // Verificar se o item está concluído
+      if (!item.resolved && !['Done', 'Closed', 'Resolved'].includes(item.status)) return false;
       
       // Verificar se cycleTime é um número válido
       const cycleTime = Number(item.cycleTime);
-      if (isNaN(cycleTime) || cycleTime < 0) return false;
+      if (isNaN(cycleTime) || cycleTime <= 0) return false;
 
       // Verificar se está dentro do range de datas
       const itemDate = new Date(item.created);
@@ -90,15 +92,22 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filte
   const statistics = useMemo(() => {
     if (chartData.length === 0) return null;
     
-    const cycleTimes = chartData.map(item => item.cycleTime);
-    const avg = cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length;
+    // Filtrar apenas cycle times válidos (maior que 0)
+    const cycleTimes = chartData
+      .map(item => item.cycleTime)
+      .filter(time => time > 0);
+
+    const avg = cycleTimes.length > 0
+      ? cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length
+      : 0;
+      
     const sorted = [...cycleTimes].sort((a, b) => a - b);
     
     // Calcular percentis de cycle time
-    const p50 = sorted[Math.floor(sorted.length * 0.5)]; // Mediana
-    const p75 = sorted[Math.floor(sorted.length * 0.75)];
-    const p85 = sorted[Math.floor(sorted.length * 0.85)];
-    const p90 = sorted[Math.floor(sorted.length * 0.90)];
+    const p50 = sorted[Math.floor(sorted.length * 0.5)] || 0; // Mediana
+    const p75 = sorted[Math.floor(sorted.length * 0.75)] || 0;
+    const p85 = sorted[Math.floor(sorted.length * 0.85)] || 0;
+    const p90 = sorted[Math.floor(sorted.length * 0.90)] || 0;
     
     // Calcular range de datas
     const dates = chartData.map(item => item.x);

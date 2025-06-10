@@ -1,7 +1,7 @@
 export interface JiraStatusHistory {
   status: string;
   date: string;
-  from: string;
+  fromStatus: string;
   author: string;
 }
 
@@ -26,6 +26,7 @@ export interface JiraIssue {
   leadTime: number;
   storyPoints: number;
   created: string;
+  startDate: string | null;
   resolved: string | null;
   resolutiondate: string | null;
   assignee: string;
