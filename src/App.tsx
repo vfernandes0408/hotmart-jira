@@ -1,4 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -6,7 +7,7 @@ import IssueTimeline from "./components/IssueTimeline";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,7 +44,7 @@ const AppContent = () => {
     } else {
       setIaModalOpen(false);
       setApiKey("");
-      toast.success(`Token da ${key === "openai" ? "OpenAI" : key === "gemini" ? "Gemini" : "Hotmart JedAI"} removido com sucesso!`);
+      toast.success("Token da OpenAI removido com sucesso!");
     }
   };
 
@@ -65,9 +66,10 @@ const AppContent = () => {
             <DialogHeader>
               <DialogTitle>
                 {selectedIa === "openai" && "Configurar OpenAI API Key"}
-                {selectedIa === "gemini" && "Configurar Gemini API Key"}
-                {selectedIa === "hotmartjedai" && "Configurar Hotmart JedAi Key"}
               </DialogTitle>
+              <DialogDescription>
+                {selectedIa === "openai" && "Configure sua chave de API da OpenAI para usar a funcionalidade de análise de dados."}
+              </DialogDescription>
             </DialogHeader>
             <form 
               onSubmit={(e) => {
@@ -75,7 +77,7 @@ const AppContent = () => {
                 if (selectedIa) {
                   saveKey(selectedIa, apiKey);
                   setIaModalOpen(false);
-                  toast.success(`Token ${selectedIa === "openai" ? "da OpenAI" : selectedIa === "gemini" ? "do Gemini" : "do Hotmart JedAI"} salvo com sucesso!`);
+                  toast.success(`Token ${selectedIa === "openai" ? "da OpenAI" : "do Gemini"} salvo com sucesso!`);
                 }
               }}
               className="space-y-4"
@@ -182,6 +184,7 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 };

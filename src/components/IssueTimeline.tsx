@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { JiraIssue, JiraChangelog } from '@/types/jira';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Search, X, Clock, User, Tag, AlertCircle, Loader2, RefreshCw, History, ArrowRight, Timer } from 'lucide-react';
+import { Search, Clock, User, Tag, AlertCircle, Loader2, History, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,18 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { fetchJiraChangelog } from '@/services/jiraApi';
+import { useJiraChangelog } from '@/hooks/useJiraDetails';
 import { useJiraCredentials } from '@/hooks/useJiraCredentials';
 import { toast } from 'sonner';
 import StatusTimeline from './StatusTimeline';
-import { calculateCycleTime } from '@/utils/cycleTime';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
 
 interface IssueTimelineProps {
@@ -38,6 +30,7 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
   const [isLoadingChangelog, setIsLoadingChangelog] = useState(false);
   const [cycleTimeStartStatus, setCycleTimeStartStatus] = useState('Developing');
   const { credentials } = useJiraCredentials();
+  const { refetch: fetchChangelog } = useJiraChangelog(selectedIssue?.id || '', credentials);
 
   // Get unique statuses from changelog
   const statusOptions = React.useMemo(() => {
@@ -90,12 +83,8 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
   const loadChangelog = async (issueId: string) => {
     setIsLoadingChangelog(true);
     try {
-      const fetchedChangelog = await fetchJiraChangelog(issueId, {
-        email: credentials.email,
-        apiToken: credentials.apiToken,
-        serverUrl: credentials.serverUrl,
-      });
-      setChangelog(fetchedChangelog);
+      const { data: fetchedChangelog } = await fetchChangelog();
+      setChangelog(fetchedChangelog || []);
 
       // Atualizar o selectedIssue com as métricas recalculadas
       if (selectedIssue) {

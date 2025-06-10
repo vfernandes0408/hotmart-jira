@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import { JiraIssue } from "@/types/jira";
 import { useOpenAI } from "@/hooks/useOpenAI";
-import { useHotmartJedai } from "@/hooks/useHotmartJedai";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -61,16 +60,15 @@ interface ComparisonData {
 const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) => {
   const [selectedLabels1, setSelectedLabels1] = useState<string[]>([]);
   const [selectedLabels2, setSelectedLabels2] = useState<string[]>([]);
-  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
-  const [insights, setInsights] = useState<string>("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [selectedAiService, setSelectedAiService] = useState<"openai" | null>(null);
   const [showInsightsPanel, setShowInsightsPanel] = useState(false);
   const [additionalContext, setAdditionalContext] = useState<string>("");
-  const [selectedAiService, setSelectedAiService] = useState<"openai" | "gemini" | "hotmartjedai" | null>(null);
   const [showAiSelector, setShowAiSelector] = useState(false);
 
   const queryClient = useQueryClient();
   const openAIMutation = useOpenAI();
-  const hotmartJedaiMutation = useHotmartJedai();
 
   // Extrair todas as labels únicas dos dados
   const availableLabels = useMemo(() => {
@@ -102,7 +100,7 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) 
           : [...prev, label]
       );
     }
-    setInsights(""); // Limpa insights ao mudar seleção
+    setAnalysisResult(null); // Limpa análise ao mudar seleção
   };
 
   // Calcular dados de comparação
@@ -190,42 +188,36 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) 
 
   // Verificar serviços de IA disponíveis
   const availableAiServices = useMemo(() => {
-    const services: Array<{ key: "openai" | "gemini" | "hotmartjedai"; name: string; configured: boolean }> = [
-      { key: "openai", name: "OpenAI", configured: !!iaKeys["openai"] },
-      { key: "gemini", name: "Gemini", configured: !!iaKeys["gemini"] },
-      { key: "hotmartjedai", name: "HotmartJedai", configured: !!iaKeys["hotmartjedai"] }
+    const services: Array<{ key: "openai"; name: string; configured: boolean }> = [
+      { key: "openai", name: "OpenAI", configured: !!iaKeys["openai"] }
     ];
     return services.filter(service => service.configured);
   }, [iaKeys]);
 
   // Abrir seletor de IA
   const handleAiClick = () => {
-    console.log("iaKeys recebidas:", iaKeys);
-    console.log("availableAiServices:", availableAiServices);
+    if (!comparisonData) {
+      toast.error("Selecione pelo menos uma label em cada coluna para comparar");
+      return;
+    }
     
     if (availableAiServices.length === 0) {
-      setInsights("❌ **Nenhum serviço de IA configurado**\n\nPara usar a funcionalidade de IA:\n1. Configure pelo menos uma chave de API no header\n2. Escolha entre OpenAI, Gemini ou HotmartJedai");
+      setAnalysisResult("❌ **Nenhum serviço de IA configurado**\n\nPara usar a funcionalidade de IA:\n1. Configure a chave de API da OpenAI no header");
       setShowInsightsPanel(true);
       return;
     }
-    
+
     if (availableAiServices.length === 1) {
       setSelectedAiService(availableAiServices[0].key);
-      generateInsights();
+      handleAnalyze();
       return;
     }
-    
-    setShowAiSelector(true);
   };
 
-  // Gerar insights com o serviço selecionado
-  const generateInsights = async () => {
-    if (!comparisonData) return;
+  const generatePrompt = () => {
+    if (!comparisonData) return "";
 
-    setIsGeneratingInsights(true);
-
-    try {
-      const prompt = `Analise os seguintes dados de comparação entre labels do Jira:
+    return `Analise os seguintes dados de comparação entre labels do Jira:
 
 Sprint 1: ${selectedLabels1.join(", ")} (${comparisonData.label1Stats.count} issues)
 - Cycle Time Médio: ${comparisonData.label1Stats.avgCycleTime.toFixed(1)} dias
@@ -242,11 +234,25 @@ Por favor, forneça insights sobre:
 2. Possíveis causas das diferenças
 3. Recomendações para melhorias
 4. Impacto no processo de desenvolvimento`;
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedLabels1.length || !selectedLabels2.length) {
+      toast.error("Selecione pelo menos uma label em cada coluna para comparar");
+      return;
+    }
+
+    if (!selectedAiService) {
+      toast.error("Selecione um serviço de IA:\n1. OpenAI");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const prompt = generatePrompt();
 
       let result = "";
-
       if (selectedAiService === "openai") {
-        // Check cache first
         const cachedData = queryClient.getQueryData(['openai', prompt]);
         if (cachedData) {
           result = cachedData as string;
@@ -255,36 +261,16 @@ Por favor, forneça insights sobre:
             prompt,
             apiKey: iaKeys["openai"]
           });
-          result = response;
+          result = `🤖 **Análise com OpenAI**\n\n${response}`;
         }
-      } else if (selectedAiService === "hotmartjedai") {
-        // Check cache first
-        const cachedData = queryClient.getQueryData(['hotmartjedai', prompt]);
-        if (cachedData) {
-          result = cachedData as string;
-        } else {
-          const response = await hotmartJedaiMutation.mutateAsync({
-            prompt,
-            apiKey: iaKeys["hotmartjedai"]
-          });
-          result = response;
-        }
-      } else if (selectedAiService === "gemini") {
-        // Para Gemini, simular por enquanto
-        result = `🤖 **Análise com Gemini**\n\n*Funcionalidade em desenvolvimento. Por enquanto, apenas OpenAI e HotmartJedai estão implementados.*\n\nDados analisados:\n- Sprint 1: ${selectedLabels1.join(", ")} (${comparisonData.label1Stats.count} issues)\n- Sprint 2: ${selectedLabels2.join(", ")} (${comparisonData.label2Stats.count} issues)`;
       }
 
-      setInsights(result);
-      setShowInsightsPanel(true);
+      setAnalysisResult(result);
     } catch (error) {
-      console.error("Erro ao gerar insights:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Erro ao gerar insights. Tente novamente."
-      );
+      console.error("Erro ao analisar dados:", error);
+      toast.error("Erro ao analisar dados. Tente novamente.");
     } finally {
-      setIsGeneratingInsights(false);
+      setIsAnalyzing(false);
     }
   };
 
@@ -314,19 +300,19 @@ Por favor, forneça insights sobre:
                 {comparisonData && iaKeys["openai"] && (
                   <Button
                     onClick={handleAiClick}
-                    disabled={isGeneratingInsights}
+                    disabled={isAnalyzing}
                     size="sm"
                     className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                   >
-                    {isGeneratingInsights ? (
+                    {isAnalyzing ? (
                       <>
                         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        Gerando...
+                        Analizando...
                       </>
                     ) : (
                       <>
                         <Brain className="w-3 h-3 mr-1" />
-                      Gerar com IA
+                        Analisar com IA
                       </>
                     )}
                   </Button>
@@ -395,7 +381,7 @@ Por favor, forneça insights sobre:
                     const temp = [...selectedLabels1];
                     setSelectedLabels1(selectedLabels2);
                     setSelectedLabels2(temp);
-                    setInsights("");
+                    setAnalysisResult(null);
                   }}
                   disabled={selectedLabels1.length === 0 || selectedLabels2.length === 0}
                   className="flex items-center gap-2 px-4 py-2 transition-all duration-200 hover:bg-purple-50 hover:border-purple-300 disabled:opacity-50"
@@ -527,7 +513,7 @@ Por favor, forneça insights sobre:
 
               <div className="prose prose-sm max-w-none text-gray-700 flex-1 overflow-auto">
                 <pre className="whitespace-pre-wrap font-sans text-sm">
-                  {insights}
+                  {analysisResult}
                 </pre>
               </div>
               <div className="space-y-2 mb-20">
@@ -557,20 +543,20 @@ Por favor, forneça insights sobre:
                   </span>
                 </div>
                 <Button
-                  onClick={generateInsights}
-                  disabled={isGeneratingInsights}
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
                   className="mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 w-full"
                   size="sm"
                 >
-                  {isGeneratingInsights ? (
+                  {isAnalyzing ? (
                     <>
                       <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                      Gerando...
+                      Analizando...
                     </>
                   ) : (
                     <>
                       <Brain className="w-3 h-3 mr-1" />
-                      Gerar novamente
+                      Analisar novamente
                     </>
                   )}
                 </Button>
@@ -597,7 +583,7 @@ Por favor, forneça insights sobre:
                   key={service.key}
                   onClick={() => {
                     setSelectedAiService(service.key);
-                    generateInsights();
+                    handleAnalyze();
                   }}
                   className="w-full p-3 border rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between"
                 >
