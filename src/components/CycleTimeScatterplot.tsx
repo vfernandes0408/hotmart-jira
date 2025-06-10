@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Cell } from 'recharts';
-import { Clock, TrendingUp, BarChart3, Calendar } from 'lucide-react';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
+import { Clock, BarChart3, Calendar } from 'lucide-react';
 import { JiraIssue } from '@/types/jira';
 import { JiraLink, renderTextWithJiraLinks } from '@/utils/jiraLinks';
 import { format } from 'date-fns';

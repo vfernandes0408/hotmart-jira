@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Calendar, Filter, RotateCcw, Tag, ChevronDown, ChevronUp, Ticket, User } from 'lucide-react';
+import { Filter, Tag, ChevronDown, ChevronUp, Ticket, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { JiraIssue, Filters } from '@/types/jira';

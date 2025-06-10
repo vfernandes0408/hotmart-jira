@@ -4,32 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   BarChart3,
   Filter,
-  TrendingUp,
-  Target,
   Activity,
   LogOut,
-  Brain,
-  Save,
-  List,
-  ChevronLeft,
-  ChevronRight,
-  Users,
   RefreshCw,
   Clock,
   Loader2,
   Github,
   Sparkles,
   Calendar,
-  RotateCcw,
   X,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
