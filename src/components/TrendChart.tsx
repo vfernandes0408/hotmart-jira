@@ -15,6 +15,10 @@ interface TrendChartProps {
   data: JiraIssue[];
   filters: {
     assignee: string | string[];
+    dateRange: {
+      start: string;
+      end: string;
+    };
   };
 }
 
@@ -42,6 +46,18 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, filters }) => {
     // Agrupar por mês e responsável
     const monthlyDataByAssignee = data.reduce((acc: any, item: any) => {
       if (!item.created || !item.resolved) return acc;
+      
+      // Verificar se está dentro do range de datas
+      const itemCreatedDate = new Date(item.created);
+      const itemResolvedDate = new Date(item.resolved);
+      const startDate = filters.dateRange.start ? new Date(filters.dateRange.start) : null;
+      const endDate = filters.dateRange.end ? new Date(filters.dateRange.end) : null;
+
+      // Se tiver filtro de data e o item estiver fora do range, pular
+      if (startDate && itemCreatedDate < startDate) return acc;
+      if (endDate && itemCreatedDate > endDate) return acc;
+      if (startDate && itemResolvedDate < startDate) return acc;
+      if (endDate && itemResolvedDate > endDate) return acc;
       
       // Mês de criação
       const createdDate = new Date(item.created);

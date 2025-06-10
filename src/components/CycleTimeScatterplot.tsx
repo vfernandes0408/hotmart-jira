@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,9 +8,15 @@ import { JiraLink, renderTextWithJiraLinks } from '@/utils/jiraLinks';
 
 interface CycleTimeScatterplotProps {
   data: JiraIssue[];
+  filters: {
+    dateRange: {
+      start: string;
+      end: string;
+    };
+  };
 }
 
-const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => {
+const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filters }) => {
   const [xAxisMode, setXAxisMode] = useState<'storyPoints' | 'sequence'>('storyPoints');
 
   // Filtrar e preparar dados para o gráfico
@@ -26,6 +31,15 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
       // Verificar se cycleTime é um número válido
       const cycleTime = Number(item.cycleTime);
       if (isNaN(cycleTime) || cycleTime < 0) return false;
+
+      // Verificar se está dentro do range de datas
+      const itemDate = new Date(item.created);
+      const startDate = filters.dateRange.start ? new Date(filters.dateRange.start) : null;
+      const endDate = filters.dateRange.end ? new Date(filters.dateRange.end) : null;
+
+      // Se tiver filtro de data e o item estiver fora do range, retornar false
+      if (startDate && itemDate < startDate) return false;
+      if (endDate && itemDate > endDate) return false;
       
       return true;
     });
@@ -69,7 +83,7 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data }) => 
         color: color
       };
     });
-  }, [data, xAxisMode]);
+  }, [data, xAxisMode, filters]);
 
   // Calcular estatísticas e informações de data
   const statistics = useMemo(() => {

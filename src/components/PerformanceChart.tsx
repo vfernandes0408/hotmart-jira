@@ -6,6 +6,12 @@ import { JiraIssue } from '@/types/jira';
 
 interface PerformanceChartProps {
   data: JiraIssue[];
+  filters: {
+    dateRange: {
+      start: string;
+      end: string;
+    };
+  };
 }
 
 interface IssueTypePerformance {
@@ -23,7 +29,7 @@ interface StatusDistribution {
   percentage: number;
 }
 
-const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
+const PerformanceChart: React.FC<PerformanceChartProps> = ({ data, filters }) => {
   // Cores para os gráficos
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -32,6 +38,15 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
     if (!data || data.length === 0) return [];
 
     const issueTypeData = data.reduce((acc: Record<string, IssueTypePerformance>, item: JiraIssue) => {
+      // Verificar se está dentro do range de datas
+      const itemDate = new Date(item.created);
+      const startDate = filters.dateRange.start ? new Date(filters.dateRange.start) : null;
+      const endDate = filters.dateRange.end ? new Date(filters.dateRange.end) : null;
+
+      // Se tiver filtro de data e o item estiver fora do range, pular
+      if (startDate && itemDate < startDate) return acc;
+      if (endDate && itemDate > endDate) return acc;
+
       const issueType = item.issueType || 'Sem Tipo';
       
       if (!acc[issueType]) {
@@ -67,15 +82,26 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ data }) => {
     if (!data || data.length === 0) return [];
 
     const statusData = data.reduce((acc: Record<string, number>, item: JiraIssue) => {
+      // Verificar se está dentro do range de datas
+      const itemDate = new Date(item.created);
+      const startDate = filters.dateRange.start ? new Date(filters.dateRange.start) : null;
+      const endDate = filters.dateRange.end ? new Date(filters.dateRange.end) : null;
+
+      // Se tiver filtro de data e o item estiver fora do range, pular
+      if (startDate && itemDate < startDate) return acc;
+      if (endDate && itemDate > endDate) return acc;
+
       const status = item.status || 'Sem Status';
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {});
 
+    const totalIssues = Object.values(statusData).reduce((sum, count) => sum + count, 0);
+
     return Object.entries(statusData).map(([status, count]) => ({
       status,
       count,
-      percentage: Math.round((count / data.length) * 100)
+      percentage: Math.round((count / totalIssues) * 100)
     }));
   };
 

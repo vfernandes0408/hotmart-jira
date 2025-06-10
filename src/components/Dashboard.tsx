@@ -67,7 +67,48 @@ interface DateRangeFilterProps {
   onDateRangeChange: (key: string, value: string) => void;
 }
 
+const getFirstDayOfCurrentMonth = () => {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+};
+
+const getCurrentDate = () => {
+  return new Date().toISOString().split('T')[0];
+};
+
 const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onDateRangeChange }) => {
+  // Formatar a data de hoje no formato YYYY-MM-DD
+  const today = getCurrentDate();
+
+  // Inicializar as datas se estiverem vazias
+  useEffect(() => {
+    if (!dateRange.start) {
+      onDateRangeChange("start", getFirstDayOfCurrentMonth());
+    }
+    if (!dateRange.end) {
+      onDateRangeChange("end", getCurrentDate());
+    }
+  }, []);
+
+  const handleDateChange = (key: string, value: string) => {
+    // Se a data selecionada é maior que hoje, não atualiza
+    if (value > today) {
+      return;
+    }
+
+    // Se é data final, não pode ser menor que a data inicial
+    if (key === 'end' && value < dateRange.start) {
+      return;
+    }
+
+    // Se é data inicial, não pode ser maior que a data final
+    if (key === 'start' && dateRange.end && value > dateRange.end) {
+      return;
+    }
+
+    onDateRangeChange(key, value);
+  };
+
   return (
     <div className="flex items-center justify-end mb-1">
       <div className="flex items-center gap-2">
@@ -79,8 +120,9 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onDateRang
           type="date"
           id="start-date"
           value={dateRange.start}
-          onChange={(e) => onDateRangeChange("start", e.target.value)}
+          onChange={(e) => handleDateChange("start", e.target.value)}
           className="w-40"
+          max={today}
         />
       </div>
       <div className="flex items-center gap-2 ml-4">
@@ -92,8 +134,10 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onDateRang
           type="date"
           id="end-date"
           value={dateRange.end}
-          onChange={(e) => onDateRangeChange("end", e.target.value)}
+          onChange={(e) => handleDateChange("end", e.target.value)}
           className="w-40"
+          max={today}
+          min={dateRange.start}
         />
       </div>
     </div>
@@ -116,7 +160,10 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     status: "",
     assignee: "",
     labels: "",
-    dateRange: { start: "", end: "" },
+    dateRange: {
+      start: getFirstDayOfCurrentMonth(),
+      end: getCurrentDate(),
+    },
   });
 
   // Funções para gerenciar sessão
@@ -688,7 +735,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                           value="scatterplot"
                           className="h-full m-0 p-3 overflow-auto"
                         >
-                          <CycleTimeScatterplot data={filteredData} />
+                          <CycleTimeScatterplot data={filteredData} filters={filters} />
                         </TabsContent>
 
                         <TabsContent value="trends" className="h-full m-0 p-3 overflow-auto">
@@ -699,7 +746,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                           value="performance"
                           className="h-full m-0 p-3 overflow-auto"
                         >
-                          <PerformanceChart data={filteredData} />
+                          <PerformanceChart data={filteredData} filters={filters} />
                         </TabsContent>
 
                         <TabsContent

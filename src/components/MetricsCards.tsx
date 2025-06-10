@@ -134,12 +134,7 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({ data }) => {
                   </p>
                 </div>
                 
-                {/* Indicador de tendência (placeholder) - Hide on small screens */}
-                <div className="mt-2 sm:mt-3 hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
-                  <div className="w-1 h-1 bg-green-500 rounded-full" />
-                  <span className="hidden lg:inline">vs. período anterior</span>
-                  <span className="lg:hidden">vs. anterior</span>
-                </div>
+    
               </CardContent>
             </Card>
           );
