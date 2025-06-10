@@ -16,6 +16,10 @@ import {
 
 interface GithubMetricsProps {
   data: JiraIssue[];
+  dateRange: {
+    start: string;
+    end: string;
+  };
 }
 
 interface GithubData {
@@ -28,15 +32,21 @@ interface GithubData {
   lastUpdated?: string;
 }
 
-const GithubMetrics: React.FC<GithubMetricsProps> = ({ data }) => {
+const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [githubData, setGithubData] = useState<GithubData | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const { isConfigured } = useApiKeys();
   
-  // Inicializa as datas com o primeiro dia do mês e ontem
-  const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState<string>(format(subDays(new Date(), 1), 'yyyy-MM-dd'));
+  // Estado para as datas
+  const [startDate, setStartDate] = useState<string>(dateRange.start);
+  const [endDate, setEndDate] = useState<string>(dateRange.end);
+
+  // Efeito para atualizar as datas quando o dateRange mudar
+  useEffect(() => {
+    setStartDate(dateRange.start);
+    setEndDate(dateRange.end);
+  }, [dateRange]);
   
   console.log('GithubMetrics render - Initial data:', data);
   

@@ -67,8 +67,13 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onDateRang
   // Formatar a data de hoje no formato YYYY-MM-DD
   const today = getCurrentDate();
 
-  // Não inicializar as datas automaticamente
-  // Remover o useEffect que setava as datas padrão
+  // Efeito para inicializar as datas quando o componente montar
+  useEffect(() => {
+    if (!dateRange.start || !dateRange.end) {
+      onDateRangeChange('start', getFirstDayOfCurrentMonth());
+      onDateRangeChange('end', today);
+    }
+  }, [dateRange.start, dateRange.end, onDateRangeChange, today]);
 
   const handleDateChange = (key: string, value: string) => {
     // Se a data selecionada é maior que hoje, não atualiza
@@ -142,8 +147,8 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     assignee: "",
     labels: "",
     dateRange: {
-      start: "",
-      end: "",
+      start: getFirstDayOfCurrentMonth(),
+      end: getCurrentDate(),
     },
   });
   const [showFilters, setShowFilters] = useState(true);
@@ -766,6 +771,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <GithubMetrics 
                             data={filteredData}
+                            dateRange={filters.dateRange}
                           />
                         </div>
                       </TabsContent>
