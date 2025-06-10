@@ -27,6 +27,7 @@ import {
   Clock,
   Loader2,
   Github,
+  Sparkles,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -200,35 +201,30 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
 
   const formatLastUpdate = (date: Date | null) => {
     if (!date) return "";
-    
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    
-    // Formatar o horário
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const timeStr = `${hours}:${minutes}`;
-    
-    // Se for menos de 1 minuto
-    if (diff < 60000) {
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+
+    // Formatar a hora no formato 24h (HH:mm)
+    const timeStr = date.toLocaleTimeString('pt-BR', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+
+    if (minutes < 1) {
       return `Atualizado agora (${timeStr})`;
+    } else if (minutes === 1) {
+      return `Atualizado há 1 minuto (${timeStr})`;
+    } else if (minutes < 60) {
+      return `Atualizado há ${minutes} minutos (${timeStr})`;
+    } else if (hours === 1) {
+      return `Atualizado há 1 hora (${timeStr})`;
+    } else {
+      return `Atualizado há ${hours} horas (${timeStr})`;
     }
-    
-    // Se for menos de 1 hora
-    if (diff < 3600000) {
-      const mins = Math.floor(diff / 60000);
-      return `Atualizado há ${mins} min (${timeStr})`;
-    }
-    
-    // Se for menos de 24 horas
-    if (diff < 86400000) {
-      const hrs = Math.floor(diff / 3600000);
-      return `Atualizado há ${hrs}h (${timeStr})`;
-    }
-    
-    // Se for mais de 24 horas
-    const days = Math.floor(diff / 86400000);
-    return `Atualizado há ${days}d (${timeStr})`;
   };
 
   const handleJiraConnect = (
@@ -420,46 +416,22 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                   fill="#FF4000"
                 ></path>
               </svg>
-              {/* Botões de IA ao lado do logo */}
-              <div className="flex items-center gap-2 ml-4">
-                <Button 
-                  size="sm" 
-                  variant={iaKeys["openai"] ? "default" : "outline"}
-                  className={iaKeys["openai"] ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                  onClick={() => onIaClick("openai")}
-                >
-                  {iaKeys["openai"] ? "🟢 OpenAI" : "OpenAI"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant={isConfigured("github") ? "default" : "outline"}
-                  className={isConfigured("github") ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                  onClick={() => onGithubClick()}
-                >
-                  <Github className="w-4 h-4 mr-2" />
-                  {isConfigured("github") ? "🟢 GitHub" : "GitHub"}
-                </Button>
-              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                  isConnected
-                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                    : "bg-amber-100 text-amber-700 border border-amber-200"
-                }`}
-              >
-                <span className="hidden sm:inline">{isConnected ? "🟢 Conectado" : "🟡 Desconectado"}</span>
-                <span className="sm:hidden">{isConnected ? "🟢" : "🟡"}</span>
-              </div>
+   
 
-              {isConnected && (
+            <div className="flex items-center gap-2 ml-4">
+            {isConnected && (
                 <>
                   {lastUpdate && (
-                    <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-600 border border-gray-200">
-                      <Clock className="w-3 h-3" />
-                      {formatLastUpdate(lastUpdate)}
+                    <div className="hidden sm:flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg transition-all duration-200 bg-gradient-to-r from-zinc-100 to-zinc-50 border border-zinc-200/50 text-zinc-600 hover:from-zinc-200 hover:to-zinc-100">
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative">
+                          <Clock className="w-3.5 h-3.5" />
+                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-white animate-pulse"></div>
+                        </div>
+                        {formatLastUpdate(lastUpdate)}
+                      </div>
                     </div>
                   )}
                   <Button
@@ -467,31 +439,61 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                     variant="outline"
                     size="sm"
                     disabled={isRefreshing}
-                    className={`px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:text-blue-800 transition-all ${isRefreshing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
+                      isRefreshing
+                        ? "bg-gradient-to-r from-blue-400 to-blue-500 text-white shadow-lg opacity-70 cursor-not-allowed"
+                        : "hover:bg-blue-50 hover:text-blue-700"
+                    }`}
                   >
                     {isRefreshing ? (
                       <>
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        <Loader2 className="w-3 h-3 animate-spin" />
                         <span className="hidden sm:inline">Atualizando...</span>
                       </>
                     ) : (
                       <>
-                        <RefreshCw className="w-3 h-3 mr-1" />
+                        <RefreshCw className="w-3 h-3" />
                         <span className="hidden sm:inline">Atualizar</span>
                       </>
                     )}
                   </Button>
-                  <Button
-                    onClick={handleLogout}
-                    variant="outline"
-                    size="sm"
-                    className="px-2.5 py-1 h-auto rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:text-red-800 transition-all"
-                  >
-                    <LogOut className="w-3 h-3 mr-1" />
-                    <span className="hidden sm:inline">Sair</span>
-                  </Button>
                 </>
               )}
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => onIaClick("openai")}
+                className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
+                  iaKeys["openai"]
+                    ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:from-blue-600 hover:to-blue-700"
+                    : "hover:bg-blue-50 hover:text-blue-700"
+                }`}
+              >
+                <Sparkles className="w-3 h-3" />
+                {iaKeys["openai"] ? "OpenAI" : "OpenAI"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onGithubClick()}
+                className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
+                  isConfigured("github")
+                    ? "bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-lg hover:from-gray-600 hover:to-gray-700"
+                    : "hover:bg-gray-50 hover:text-gray-700"
+                }`}
+              >
+                <Github className="w-3 h-3" />
+                {isConfigured("github") ? "GitHub" : "GitHub"}
+              </Button>
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg hover:from-red-600 hover:to-red-700"
+              >
+                <LogOut className="w-3 h-3" />
+                <span className="hidden sm:inline">Sair</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -608,7 +610,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         className="flex items-center gap-1 text-xs px-1 sm:px-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-rose-50 hover:text-rose-700"
                       >
                         <Clock className="w-3 h-3" />
-                        <span className="hidden sm:inline">Timeline</span>
+                        <span className="hidden sm:inline">Ticket</span>
                         <span className="sm:hidden">Time</span>
                       </TabsTrigger>
                       <TabsTrigger
