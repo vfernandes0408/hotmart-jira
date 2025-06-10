@@ -73,7 +73,6 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
   const [sessionTimer, setSessionTimer] = useState<NodeJS.Timeout | null>(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [filters, setFilters] = useState<Filters>({
-    project: "",
     issueType: "",
     status: "",
     assignee: "",
@@ -266,12 +265,6 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     // Apply all filters to data
     let filtered = jiraData;
 
-    if (newFilters.project) {
-      filtered = filtered.filter(
-        (item: JiraIssue) => item.project === newFilters.project
-      );
-    }
-
     if (newFilters.issueType) {
       const issueTypes = Array.isArray(newFilters.issueType)
         ? newFilters.issueType
@@ -335,7 +328,6 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     setFilteredData([]);
     setProjectKey("");
     setFilters({
-      project: "",
       issueType: "",
       status: "",
       assignee: "",
@@ -561,7 +553,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                       {/* Indicador de filtros ativos */}
-                      {(filters.project || 
+                      {(filters.issueType || 
                         (Array.isArray(filters.issueType) ? filters.issueType.length > 0 : filters.issueType) ||
                         filters.status || 
                         (Array.isArray(filters.assignee) ? filters.assignee.length > 0 : filters.assignee) ||
@@ -646,7 +638,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                       </TabsContent>
 
                       <TabsContent value="trends" className="h-full m-0 p-3 overflow-auto">
-                        <TrendChart data={filteredData} />
+                        <TrendChart data={filteredData} filters={filters} />
                       </TabsContent>
 
                       <TabsContent
