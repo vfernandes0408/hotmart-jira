@@ -32,7 +32,11 @@ const AssigneeComparison: React.FC<AssigneeComparisonProps> = ({ data }) => {
       }
       
       acc[assignee].totalTickets += 1;
-      acc[assignee].totalStoryPoints += issue.storyPoints || 0;
+      
+      // Ensure we're handling story points correctly
+      const storyPoints = typeof issue.storyPoints === 'number' ? issue.storyPoints : 0;
+      console.log(`Story points for ${issue.id}:`, issue.storyPoints, typeof issue.storyPoints, '-> parsed:', storyPoints);
+      acc[assignee].totalStoryPoints += storyPoints;
       
       if (issue.cycleTime && issue.cycleTime > 0) {
         acc[assignee].cycleTimeSum += issue.cycleTime;
@@ -61,16 +65,35 @@ const AssigneeComparison: React.FC<AssigneeComparisonProps> = ({ data }) => {
       };
     }>);
     
-    return Object.values(metrics).map((metric) => ({
-      ...metric,
-      avgCycleTime: metric.cycleTimeCount > 0 ? Math.round(metric.cycleTimeSum / metric.cycleTimeCount) : 0,
-      avgStoryPoints: metric.totalTickets > 0 ? Math.round((metric.totalStoryPoints / metric.totalTickets) * 10) / 10 : 0,
-      completionRate: metric.totalTickets > 0 ? Math.round((metric.statusBreakdown.Done / metric.totalTickets) * 100) : 0
-    })).sort((a, b) => b.totalTickets - a.totalTickets);
+    // Log total story points before filtering
+    console.log('Total story points before filtering:', 
+      Object.values(metrics).reduce((sum, metric) => sum + metric.totalStoryPoints, 0)
+    );
+
+    const processedMetrics = Object.values(metrics)
+      .filter(metric => metric.name !== 'Não Atribuído') // Remove unassigned tickets from the comparison
+      .map((metric) => ({
+        ...metric,
+        avgCycleTime: metric.cycleTimeCount > 0 ? Math.round(metric.cycleTimeSum / metric.cycleTimeCount) : 0,
+        avgStoryPoints: metric.totalTickets > 0 ? Math.round((metric.totalStoryPoints / metric.totalTickets) * 10) / 10 : 0,
+        completionRate: metric.totalTickets > 0 ? Math.round((metric.statusBreakdown.Done / metric.totalTickets) * 100) : 0
+      }));
+
+    // Log total story points after filtering
+    console.log('Total story points after filtering:', 
+      processedMetrics.reduce((sum, metric) => sum + metric.totalStoryPoints, 0)
+    );
+
+    return processedMetrics.sort((a, b) => b.totalTickets - a.totalTickets);
   }, [data]);
 
   const totalStats = useMemo(() => {
-    return assigneeMetrics.reduce((acc, metric) => ({
+    // Log individual story points for debugging
+    assigneeMetrics.forEach(metric => {
+      console.log(`Story points for ${metric.name}:`, metric.totalStoryPoints);
+    });
+
+    const stats = assigneeMetrics.reduce((acc, metric) => ({
       totalAssignees: acc.totalAssignees + 1,
       totalTickets: acc.totalTickets + metric.totalTickets,
       totalStoryPoints: acc.totalStoryPoints + metric.totalStoryPoints,
@@ -83,6 +106,11 @@ const AssigneeComparison: React.FC<AssigneeComparisonProps> = ({ data }) => {
       totalCycleTime: 0,
       totalCycleTimeCount: 0
     });
+
+    // Log final total stats
+    console.log('Final total stats:', stats);
+
+    return stats;
   }, [assigneeMetrics]);
 
   const CustomTooltip = ({ active, payload, label }: {

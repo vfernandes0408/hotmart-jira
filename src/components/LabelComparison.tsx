@@ -84,7 +84,7 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) 
         });
       }
     });
-    return Array.from(labelSet).sort();
+    return Array.from(labelSet).sort((a, b) => b.localeCompare(a));
   }, [data]);
 
   // Função para alternar seleção de labels
@@ -227,12 +227,12 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) 
     try {
       const prompt = `Analise os seguintes dados de comparação entre labels do Jira:
 
-Label 1: ${selectedLabels1.join(", ")} (${comparisonData.label1Stats.count} issues)
+Sprint 1: ${selectedLabels1.join(", ")} (${comparisonData.label1Stats.count} issues)
 - Cycle Time Médio: ${comparisonData.label1Stats.avgCycleTime.toFixed(1)} dias
 - Story Points Médio: ${comparisonData.label1Stats.avgStoryPoints.toFixed(1)}
 - Taxa de Conclusão: ${comparisonData.label1Stats.completionRate.toFixed(1)}%
 
-Label 2: ${selectedLabels2.join(", ")} (${comparisonData.label2Stats.count} issues)
+Sprint 2: ${selectedLabels2.join(", ")} (${comparisonData.label2Stats.count} issues)
 - Cycle Time Médio: ${comparisonData.label2Stats.avgCycleTime.toFixed(1)} dias
 - Story Points Médio: ${comparisonData.label2Stats.avgStoryPoints.toFixed(1)}
 - Taxa de Conclusão: ${comparisonData.label2Stats.completionRate.toFixed(1)}%
@@ -271,7 +271,7 @@ Por favor, forneça insights sobre:
         }
       } else if (selectedAiService === "gemini") {
         // Para Gemini, simular por enquanto
-        result = `🤖 **Análise com Gemini**\n\n*Funcionalidade em desenvolvimento. Por enquanto, apenas OpenAI e HotmartJedai estão implementados.*\n\nDados analisados:\n- Label 1: ${selectedLabels1.join(", ")} (${comparisonData.label1Stats.count} issues)\n- Label 2: ${selectedLabels2.join(", ")} (${comparisonData.label2Stats.count} issues)`;
+        result = `🤖 **Análise com Gemini**\n\n*Funcionalidade em desenvolvimento. Por enquanto, apenas OpenAI e HotmartJedai estão implementados.*\n\nDados analisados:\n- Sprint 1: ${selectedLabels1.join(", ")} (${comparisonData.label1Stats.count} issues)\n- Sprint 2: ${selectedLabels2.join(", ")} (${comparisonData.label2Stats.count} issues)`;
       }
 
       setInsights(result);
@@ -301,7 +301,7 @@ Por favor, forneça insights sobre:
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-purple-600" />
-                Comparação de Labels
+                Comparação de Sprint
               </CardTitle>
               <div className="flex items-center gap-2">
                 <Badge
@@ -341,7 +341,7 @@ Por favor, forneça insights sobre:
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Label 1
+                    Sprint 1
                   </label>
                   <div className="max-h-48 overflow-y-auto border rounded p-2 bg-white/80">
                     {availableLabels.map((label) => (
@@ -364,7 +364,7 @@ Por favor, forneça insights sobre:
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Label 2
+                    Sprint 2
                   </label>
                   <div className="max-h-48 overflow-y-auto border rounded p-2 bg-white/80">
                     {availableLabels.map((label) => (

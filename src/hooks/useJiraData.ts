@@ -11,31 +11,78 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
   try {
     // Helper function to validate and parse story points
     const parseStoryPoints = (value: unknown): number => {
-      if (typeof value === 'number' && !isNaN(value) && value > 0) {
+      // Log the raw value for debugging
+      console.log('Raw story points value:', value, typeof value);
+
+      // Handle number case
+      if (typeof value === 'number' && !isNaN(value)) {
         return value;
       }
+
+      // Handle string case
       if (typeof value === 'string') {
         const parsed = parseFloat(value);
-        if (!isNaN(parsed) && parsed > 0) {
+        if (!isNaN(parsed)) {
           return parsed;
         }
       }
+
+      // Handle object case (some Jira instances return an object)
+      if (value && typeof value === 'object' && 'value' in value) {
+        const objValue = (value as { value: unknown }).value;
+        if (typeof objValue === 'number' && !isNaN(objValue)) {
+          return objValue;
+        }
+        if (typeof objValue === 'string') {
+          const parsed = parseFloat(objValue);
+          if (!isNaN(parsed)) {
+            return parsed;
+          }
+        }
+      }
+
       return 0;
     };
 
     // Try different custom fields that might contain story points
-    const storyPoints = parseStoryPoints(
-      apiIssue.fields.customfield_10016 ||
-      apiIssue.fields.customfield_10004 ||
-      apiIssue.fields.customfield_10002 ||
-      apiIssue.fields.customfield_10020 ||
-      apiIssue.fields.customfield_10011 ||
-      apiIssue.fields.customfield_10028 ||
-      apiIssue.fields.customfield_10024 ||
-      apiIssue.fields.storypoints ||
-      apiIssue.fields.story_points ||
-      0
-    );
+    const customFields = [
+      apiIssue.fields.customfield_10016,
+      apiIssue.fields.customfield_10004,
+      apiIssue.fields.customfield_10002,
+      apiIssue.fields.customfield_10020,
+      apiIssue.fields.customfield_10011,
+      apiIssue.fields.customfield_10028,
+      apiIssue.fields.customfield_10024,
+      apiIssue.fields.storypoints,
+      apiIssue.fields.story_points
+    ];
+
+    // Log all custom fields for debugging
+    console.log('Custom fields values for issue', apiIssue.key, ':', {
+      customfield_10016: apiIssue.fields.customfield_10016,
+      customfield_10004: apiIssue.fields.customfield_10004,
+      customfield_10002: apiIssue.fields.customfield_10002,
+      customfield_10020: apiIssue.fields.customfield_10020,
+      customfield_10011: apiIssue.fields.customfield_10011,
+      customfield_10028: apiIssue.fields.customfield_10028,
+      customfield_10024: apiIssue.fields.customfield_10024,
+      storypoints: apiIssue.fields.storypoints,
+      story_points: apiIssue.fields.story_points
+    });
+
+    // Try each field and use the first valid value
+    let storyPoints = 0;
+    for (const field of customFields) {
+      const parsedValue = parseStoryPoints(field);
+      if (parsedValue > 0) {
+        storyPoints = parsedValue;
+        console.log('Found valid story points:', storyPoints, 'from field:', field);
+        break;
+      }
+    }
+
+    // Log the final story points value
+    console.log('Final story points value for issue', apiIssue.key, ':', storyPoints);
 
     // Status que indicam desenvolvimento ativo
     const developmentStatuses = ['Em Desenvolvimento', 'Developing', 'In Progress', 'Em Progresso'];
@@ -115,7 +162,8 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       cycleTime: cycleTime,
       leadTime: leadTime,
       statusHistory: statusHistory,
-      comments: apiIssue.fields.comment?.comments || []
+      comments: apiIssue.fields.comment?.comments || [],
+      components: apiIssue.fields.components?.map(c => c.name) || [],
     };
 
     return mappedIssue;
