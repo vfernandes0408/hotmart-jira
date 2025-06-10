@@ -185,7 +185,7 @@ Crie um arquivo `.env` na raiz do projeto:
 ```env
 # Configurações da aplicação
 NODE_ENV=development
-VITE_API_URL=http://localhost:5173
+VITE_API_URL=http://localhost:8888
 
 # Configurações do Docker
 COMPOSE_PROJECT_NAME=jira-analytics
@@ -306,7 +306,7 @@ make dev
 1. **Porta já em uso:**
    ```bash
    # Verificar processos na porta
-   lsof -i :5173  # desenvolvimento
+   lsof -i :8888  # desenvolvimento
    lsof -i :80    # produção
    
    # Parar containers

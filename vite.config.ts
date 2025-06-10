@@ -5,12 +5,11 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: "./",
+  base: './',
   server: {
     host: "::",
     port: 8888,
     allowedHosts: [
-      "hotmart-hotmartjira-dm4rdw-c006a0-69-62-89-150.traefik.me",
       "hotmart.vmanager.app",
     ],
     proxy: {
@@ -31,9 +30,11 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    assetsDir: 'assets',
+    sourcemap: true,
     rollupOptions: {
-      input: {
-        main: path.resolve(__dirname, "index.html"),
+      output: {
+        manualChunks: undefined,
       },
     },
   },
