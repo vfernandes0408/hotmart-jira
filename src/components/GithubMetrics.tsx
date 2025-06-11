@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Github, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, Github, ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import { useApiKeys } from '@/hooks/useApiKeys';
 import { toast } from 'sonner';
 import { JiraIssue } from '@/types/jira';
@@ -13,6 +13,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+
+type SortField = 'name' | 'commits' | 'prsCreated' | 'prsReviewed' | 'additions' | 'deletions' | 'changedFiles';
+type SortOrder = 'asc' | 'desc';
 
 interface GithubMetricsProps {
   data: {
@@ -30,6 +33,23 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
   
   console.log('Emails recebidos:', emails);
   console.log('GitHub configurado:', isConfigured('github'));
+
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ChevronsUpDown className="h-4 w-4" />;
+    return sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
+  };
 
   // Busca dados do GitHub para cada email
   const userQueries = emails.map(email => {
@@ -123,6 +143,26 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     if (value === undefined) return '-';
     return value.toLocaleString();
   };
+
+  // Ordena os usuários válidos
+  const sortedUsers = useMemo(() => {
+    const validUsers = userQueries
+      .filter(query => query.data !== null && !query.isError)
+      .map(query => query.data as GithubUser);
+
+    if (!validUsers.length) return [];
+    
+    return [...validUsers].sort((a, b) => {
+      const aValue = a[sortField] ?? 0;
+      const bValue = b[sortField] ?? 0;
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [userQueries, sortField, sortOrder]);
 
   if (!isConfigured('github')) {
     return (
@@ -221,58 +261,100 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
               </CollapsibleTrigger>
 
               <CollapsibleContent className="mt-4 space-y-4">
-                {userQueries
-                  .filter(query => {
-                    const isValid = query.data !== null && !query.isError;
-                    console.log(`Filtering query for ${query.data?.email}:`, { isValid, hasData: !!query.data, isError: query.isError });
-                    return isValid;
-                  })
-                  .map(({ data: userData, isLoading, isError }) => {
-                    console.log(`Rendering user data for ${userData?.email}:`, userData);
-                    return (
-                      <div key={userData?.email} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium">{userData?.name || userData?.email}</h4>
-                          <div className="flex items-center gap-2">
-                            {isLoading && (
-                              <RefreshCw className="h-3 w-3 animate-spin" />
-                            )}
-                            <span className="text-xs text-muted-foreground">
-                              {userData?.lastUpdated && format(new Date(userData.lastUpdated), "dd/MM/yyyy", { locale: ptBR })}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 text-sm mb-2">
-                          <div>
-                            <span className="text-muted-foreground">Commits:</span>{' '}
-                            <span className="font-medium">{renderMetricValue(userData?.commits)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">PRs:</span>{' '}
-                            <span className="font-medium">{renderMetricValue(userData?.prsCreated)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Reviews:</span>{' '}
-                            <span className="font-medium">{renderMetricValue(userData?.prsReviewed)}</span>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Adições:</span>{' '}
-                            <span className="font-medium text-green-600">+{renderMetricValue(userData?.additions)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Remoções:</span>{' '}
-                            <span className="font-medium text-red-600">-{renderMetricValue(userData?.deletions)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Mudanças:</span>{' '}
-                            <span className="font-medium">{renderMetricValue(userData?.changedFiles)}</span>
-                          </div>
+                <div className="grid grid-cols-3 gap-2 text-sm font-medium mb-2">
+                  <Button 
+                    variant="ghost" 
+                    className="justify-start" 
+                    onClick={() => handleSort('name')}
+                  >
+                    Nome {getSortIcon('name')}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="justify-start" 
+                    onClick={() => handleSort('commits')}
+                  >
+                    Commits {getSortIcon('commits')}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="justify-start" 
+                    onClick={() => handleSort('prsCreated')}
+                  >
+                    PRs {getSortIcon('prsCreated')}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="justify-start" 
+                    onClick={() => handleSort('prsReviewed')}
+                  >
+                    Reviews {getSortIcon('prsReviewed')}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="justify-start" 
+                    onClick={() => handleSort('additions')}
+                  >
+                    Adições {getSortIcon('additions')}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="justify-start" 
+                    onClick={() => handleSort('deletions')}
+                  >
+                    Remoções {getSortIcon('deletions')}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="justify-start" 
+                    onClick={() => handleSort('changedFiles')}
+                  >
+                    Mudanças {getSortIcon('changedFiles')}
+                  </Button>
+                </div>
+                {sortedUsers.map((userData) => {
+                  if (!userData) return null;
+                  return (
+                    <div key={userData.email} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-medium">{userData.name || userData.email}</h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {userData.lastUpdated && format(new Date(userData.lastUpdated), "dd/MM/yyyy", { locale: ptBR })}
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
+                      <div className="grid grid-cols-3 gap-2 text-sm mb-2">
+                        <div>
+                          <span className="text-muted-foreground">Commits:</span>{' '}
+                          <span className="font-medium">{renderMetricValue(userData?.commits)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">PRs:</span>{' '}
+                          <span className="font-medium">{renderMetricValue(userData?.prsCreated)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Reviews:</span>{' '}
+                          <span className="font-medium">{renderMetricValue(userData?.prsReviewed)}</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Adições:</span>{' '}
+                          <span className="font-medium text-green-600">+{renderMetricValue(userData?.additions)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Remoções:</span>{' '}
+                          <span className="font-medium text-red-600">-{renderMetricValue(userData?.deletions)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Mudanças:</span>{' '}
+                          <span className="font-medium">{renderMetricValue(userData?.changedFiles)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </CollapsibleContent>
             </Collapsible>
           </div>
