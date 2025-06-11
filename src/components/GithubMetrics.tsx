@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Github, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApiKeys } from '@/hooks/useApiKeys';
 import { toast } from 'sonner';
 import { JiraIssue } from '@/types/jira';
-import { useGithubBulkData } from '@/hooks/useGithubQuery';
+import { useGithubBulkData, useGithubQuery, GithubUser } from '@/hooks/useGithubQuery';
 import { format, startOfMonth, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -15,136 +15,141 @@ import {
 } from "@/components/ui/collapsible";
 
 interface GithubMetricsProps {
-  data: JiraIssue[];
-  dateRange: {
-    start: string;
-    end: string;
+  data: {
+    emails: string[];
   };
-}
-
-interface GithubData {
-  commits: number;
-  pullRequests: number;
-  reviews: number;
-  comments: number;
-  reactions: number;
-  changes: number;
-  lastUpdated?: string;
+  dateRange: {
+    from: Date;
+    to: Date;
+  };
 }
 
 const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [githubData, setGithubData] = useState<GithubData | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(true);
+  const { emails = [] } = data || {};
   const { isConfigured } = useApiKeys();
   
-  // Estado para as datas
-  const [startDate, setStartDate] = useState<string>(dateRange.start);
-  const [endDate, setEndDate] = useState<string>(dateRange.end);
+  console.log('Emails recebidos:', emails);
+  console.log('GitHub configurado:', isConfigured('github'));
 
-  // Efeito para atualizar as datas quando o dateRange mudar
-  useEffect(() => {
-    setStartDate(dateRange.start);
-    setEndDate(dateRange.end);
-  }, [dateRange]);
-  
-  console.log('GithubMetrics render - Initial data:', data);
-  
-  const emails = data
-    .map(issue => issue.assigneeEmail)
-    .filter((email): email is string => {
-      const isValid = Boolean(email);
-      if (!isValid) {
-        console.log('Filtered out invalid email:', email);
-      }
-      return isValid;
+  // Busca dados do GitHub para cada email
+  const userQueries = emails.map(email => {
+    // Extrai o nome do usuário do email (parte antes do @) e remove pontos
+    const username = email.split('@')[0].replace(/\./g, '') + '-hotmart';
+    console.log(`Convertendo email ${email} para username: ${username}`);
+    const query = useGithubQuery(email);
+    console.log('Estado da query para', email, {
+      data: query.data,
+      isLoading: query.isLoading,
+      isError: query.isError,
+      error: query.error
     });
-
-  console.log('Filtered emails:', emails);
-
-  const { userQueries, cachedData, mutation } = useGithubBulkData(emails);
-  
-  console.log('useGithubBulkData result:', {
-    userQueries: userQueries.map(q => ({ email: q.email, hasData: !!q.data })),
-    hasCachedData: !!cachedData,
-    hasMutation: !!mutation
+    return query;
   });
 
-  // Use cached data when available
-  useEffect(() => {
-    console.log('useEffect - cachedData changed:', cachedData);
-    if (cachedData && !githubData) {
-      console.log('Setting githubData from cache');
-      setGithubData(cachedData);
-    }
-  }, [cachedData]);
+  console.log('Queries criadas:', userQueries.map(q => ({
+    email: q.data?.email,
+    isLoading: q.isLoading,
+    isError: q.isError,
+    error: q.error
+  })));
 
-  const handleImport = async () => {
-    console.log('handleImport called');
-    
-    if (!isConfigured('github')) {
-      toast.error('Configure o token do GitHub primeiro!');
-      return;
+  // Hook para buscar dados em lote
+  const { mutation } = useGithubBulkData(emails);
+
+  // Calcula métricas totais
+  const githubData = useMemo(() => {
+    console.log('Iniciando cálculo de métricas...');
+    console.log('Estado das queries:', userQueries.map(q => ({
+      email: q.data?.email,
+      isLoading: q.isLoading,
+      isError: q.isError,
+      error: q.error
+    })));
+
+    const validUsers = userQueries
+      .filter(query => {
+        const isValid = query.data !== null && !query.isError;
+        console.log(`Filtrando usuário ${query.data?.email}:`, { 
+          isValid, 
+          hasData: !!query.data, 
+          isError: query.isError,
+          data: query.data 
+        });
+        return isValid;
+      })
+      .map(query => query.data as GithubUser);
+
+    if (validUsers.length === 0) {
+      console.log('Nenhum usuário válido encontrado');
+      return null;
     }
 
-    if (emails.length === 0) {
-      toast.error('Nenhum email encontrado para buscar dados do GitHub.');
-      return;
-    }
+    const totals = {
+      commits: validUsers.reduce((acc, user) => acc + (user?.commits || 0), 0),
+      pullRequests: validUsers.reduce((acc, user) => acc + (user?.prsCreated || 0), 0),
+      reviews: validUsers.reduce((acc, user) => acc + (user?.prsReviewed || 0), 0),
+      comments: validUsers.reduce((acc, user) => acc + (user?.comments || 0), 0),
+      reactions: validUsers.reduce((acc, user) => acc + (user?.reactions || 0), 0),
+      changedFiles: validUsers.reduce((acc, user) => acc + (user?.changedFiles || 0), 0),
+      additions: validUsers.reduce((acc, user) => acc + (user?.additions || 0), 0),
+      deletions: validUsers.reduce((acc, user) => acc + (user?.deletions || 0), 0),
+      lastUpdated: new Date().toISOString(),
+    };
 
-    setIsLoading(true);
-    try {
-      console.log('Starting mutation');
-      const result = await mutation.mutateAsync({
-        startDate: new Date(startDate),
-        endDate: new Date(endDate)
-      });
-      console.log('Mutation result:', result);
-      setGithubData(result);
-      toast.success('Dados do GitHub importados com sucesso!');
-    } catch (error) {
-      console.error('Import error:', error);
-      if (!githubData) {
-        toast.error('Erro ao importar dados do GitHub. Tente novamente.');
-      } else {
-        toast.error('Erro ao atualizar dados. Usando dados em cache.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    console.log('Totais calculados:', totals);
+    return totals;
+  }, [userQueries]);
+
+  const isLoading = userQueries.some(query => query.isLoading) || mutation.isPending;
+  const isError = userQueries.some(query => query.isError);
+
+  console.log('Estado de loading:', isLoading);
+  console.log('Estado de erro:', isError);
+
+  const handleRefresh = () => {
+    console.log('Atualizando dados do GitHub...');
+    userQueries.forEach(query => query.refetch());
   };
 
-  const handleRefresh = async () => {
-    if (!isConfigured('github')) {
-      toast.error('Configure o token do GitHub primeiro!');
-      return;
-    }
-
-    if (!githubData) {
-      toast.error('Execute a importação primeiro!');
-      return;
-    }
-
-    if (emails.length === 0) {
-      toast.error('Nenhum email encontrado para buscar dados do GitHub.');
-      return;
-    }
-
-    await handleImport();
+  const handleImport = () => {
+    console.log('Importando dados do GitHub...', { emails, dateRange });
+    mutation.mutate({
+      startDate: dateRange.from,
+      endDate: dateRange.to
+    });
   };
 
   const renderMetricValue = (value: number | undefined) => {
-    console.log('renderMetricValue called with:', value);
-    return value ?? 0;
+    if (value === undefined) return '-';
+    return value.toLocaleString();
   };
 
-  console.log('Current githubData:', githubData);
-  console.log('Current userQueries:', userQueries.map(q => ({
-    email: q.email,
-    hasData: !!q.data,
-    isLoading: q.isLoading,
-    isError: q.isError
-  })));
+  if (!isConfigured('github')) {
+    return (
+      <Card className="col-span-full xl:col-span-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Métricas do GitHub</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center p-4 text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              Configure o token do GitHub para ver as métricas
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const event = new CustomEvent('openGithubModal');
+                window.dispatchEvent(event);
+              }}
+            >
+              Configurar GitHub
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="col-span-full xl:col-span-2">
@@ -178,97 +183,104 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
       </CardHeader>
       <CardContent>
         {githubData ? (
-          <Collapsible open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col">
-                <span className="text-2xl font-bold">{renderMetricValue(githubData?.commits)}</span>
-                <span className="text-xs text-muted-foreground">Commits</span>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Commits</div>
+                <div className="text-2xl font-bold">{githubData.commits}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-bold">{renderMetricValue(githubData?.pullRequests)}</span>
-                <span className="text-xs text-muted-foreground">Pull Requests</span>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Pull Requests</div>
+                <div className="text-2xl font-bold">{githubData.pullRequests}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-bold">{renderMetricValue(githubData?.reviews)}</span>
-                <span className="text-xs text-muted-foreground">Code Reviews</span>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Reviews</div>
+                <div className="text-2xl font-bold">{githubData.reviews}</div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-bold">{renderMetricValue(githubData?.comments)}</span>
-                <span className="text-xs text-muted-foreground">Comentários</span>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Total de Alterações</div>
+                <div className="text-2xl font-bold">{githubData.changedFiles.toLocaleString()}</div>
               </div>
             </div>
 
-            <CollapsibleTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full mt-4 flex items-center justify-center gap-2"
-              >
-                {isDetailsOpen ? (
-                  <>
-                    <ChevronUp className="h-4 w-4" />
-                    Ocultar detalhes
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4" />
-                    Ver detalhes por usuário
-                  </>
-                )}
-              </Button>
-            </CollapsibleTrigger>
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Linhas Adicionadas</div>
+                <div className="text-2xl font-bold text-green-600">+{githubData.additions.toLocaleString()}</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Linhas Removidas</div>
+                <div className="text-2xl font-bold text-red-600">-{githubData.deletions.toLocaleString()}</div>
+              </div>
+            </div>
 
-            <CollapsibleContent className="mt-4 space-y-4">
-              {userQueries
-                .filter(query => {
-                  const isValid = query.data !== null && !query.isError;
-                  console.log(`Filtering query for ${query.email}:`, { isValid, hasData: !!query.data, isError: query.isError });
-                  return isValid;
-                })
-                .map(({ email, data: userData, isLoading, isError }) => {
-                  console.log(`Rendering user data for ${email}:`, userData);
-                  return (
-                    <div key={email} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium">{userData?.name || email}</h4>
-                        <div className="flex items-center gap-2">
-                          {isLoading && (
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {userData?.lastUpdated && format(new Date(userData.lastUpdated), "dd/MM/yyyy", { locale: ptBR })}
-                          </span>
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                <ChevronDown className="h-4 w-4" />
+                Detalhes por Usuário
+              </CollapsibleTrigger>
+
+              <CollapsibleContent className="mt-4 space-y-4">
+                {userQueries
+                  .filter(query => {
+                    const isValid = query.data !== null && !query.isError;
+                    console.log(`Filtering query for ${query.data?.email}:`, { isValid, hasData: !!query.data, isError: query.isError });
+                    return isValid;
+                  })
+                  .map(({ data: userData, isLoading, isError }) => {
+                    console.log(`Rendering user data for ${userData?.email}:`, userData);
+                    return (
+                      <div key={userData?.email} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium">{userData?.name || userData?.email}</h4>
+                          <div className="flex items-center gap-2">
+                            {isLoading && (
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {userData?.lastUpdated && format(new Date(userData.lastUpdated), "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-sm mb-2">
+                          <div>
+                            <span className="text-muted-foreground">Commits:</span>{' '}
+                            <span className="font-medium">{renderMetricValue(userData?.commits)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">PRs:</span>{' '}
+                            <span className="font-medium">{renderMetricValue(userData?.prsCreated)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Reviews:</span>{' '}
+                            <span className="font-medium">{renderMetricValue(userData?.prsReviewed)}</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Adições:</span>{' '}
+                            <span className="font-medium text-green-600">+{renderMetricValue(userData?.additions)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Remoções:</span>{' '}
+                            <span className="font-medium text-red-600">-{renderMetricValue(userData?.deletions)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Mudanças:</span>{' '}
+                            <span className="font-medium">{renderMetricValue(userData?.changedFiles)}</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Commits:</span>{' '}
-                          <span className="font-medium">{renderMetricValue(userData?.commits)}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">PRs:</span>{' '}
-                          <span className="font-medium">{renderMetricValue(userData?.prsCreated)}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Reviews:</span>{' '}
-                          <span className="font-medium">{renderMetricValue(userData?.prsReviewed)}</span>
-                        </div>
-                      </div>
-                      {isError && (
-                        <div className="mt-2 text-xs text-red-500">
-                          Erro ao carregar dados. Tente novamente.
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </CollapsibleContent>
-          </Collapsible>
+                    );
+                  })}
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         ) : (
-          <div className="flex items-center justify-center h-24">
-            <span className="text-sm text-muted-foreground">
-              {isLoading ? 'Carregando dados...' : emails.length === 0 ? 'Nenhum email encontrado' : 'Clique no ícone do GitHub para importar dados'}
-            </span>
+          <div className="flex flex-col items-center justify-center p-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              {isLoading ? 'Carregando métricas...' : 'Nenhuma métrica disponível'}
+            </p>
           </div>
         )}
       </CardContent>

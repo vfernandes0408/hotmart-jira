@@ -9,6 +9,9 @@ interface JiraCredentials {
 
 const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
   try {
+    console.log('Mapeando issue:', apiIssue.key);
+    console.log('Assignee original:', apiIssue.fields.assignee);
+
     // Helper function to validate and parse story points
     const parseStoryPoints = (value: unknown): number => {
       // Log the raw value for debugging
@@ -150,7 +153,7 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       summary: apiIssue.fields.summary || '',
       issueType: apiIssue.fields.issuetype?.name || '',
       status: apiIssue.fields.status?.name || '',
-      assignee: apiIssue.fields.assignee?.displayName || '',
+      assignee: apiIssue.fields.assignee?.emailAddress || '',
       assigneeEmail: apiIssue.fields.assignee?.emailAddress || '',
       created: apiIssue.fields.created,
       startDate: startDate,
@@ -166,6 +169,7 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       components: apiIssue.fields.components?.map(c => c.name) || [],
     };
 
+    console.log('Issue mapeada:', mappedIssue);
     return mappedIssue;
   } catch (error) {
     console.error('Error mapping Jira issue:', error);
@@ -174,12 +178,15 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
 };
 
 const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]> => {
+  console.log('Iniciando busca de dados do Jira...');
   const auth = btoa(`${credentials.email}:${credentials.apiToken}`);
   const url = "/api/jira/rest/api/3/search";
 
   const jql = credentials.projectKey
     ? `project = "${credentials.projectKey}" ORDER BY created DESC`
     : "ORDER BY created DESC";
+
+  console.log('JQL:', jql);
 
   let allIssues: JiraIssue[] = [];
   let startAt = 0;
@@ -194,6 +201,8 @@ const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]>
       fields: "*all",
       expand: "changelog"
     });
+
+    console.log('Buscando issues...', { startAt, maxResults });
 
     const response = await fetch(`${url}?${params}`, {
       method: "GET",
@@ -217,12 +226,15 @@ const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]>
     }
 
     const data = await response.json();
+    console.log('Resposta do Jira:', data);
 
     if (data.issues && data.issues.length > 0) {
       const mappedIssues = data.issues
         .map(mapJiraIssueToLocal)
         .filter((issue): issue is JiraIssue => issue !== null);
       allIssues = [...allIssues, ...mappedIssues];
+
+      console.log('Total de issues mapeados:', allIssues.length);
 
       startAt += maxResults;
       hasMoreResults = data.total > startAt;
@@ -239,6 +251,7 @@ const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]>
     throw new Error("Nenhum issue encontrado no projeto especificado.");
   }
 
+  console.log('Dados finais do Jira:', allIssues);
   return allIssues;
 };
 

@@ -769,9 +769,34 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
+                          {(() => {
+                            console.log('Dados antes do filtro:', filteredData);
+                            const emails = filteredData
+                              ?.filter(issue => {
+                                const email = issue.assigneeEmail;
+                                console.log('Verificando email:', email);
+                                return email && email.includes('@');
+                              })
+                              .map(issue => issue.assigneeEmail)
+                              .filter((email, index, self) => self.indexOf(email) === index) || [];
+                            console.log('Emails extraídos:', emails);
+                            return null;
+                          })()}
                           <GithubMetrics 
-                            data={filteredData}
-                            dateRange={filters.dateRange}
+                            data={{
+                              emails: filteredData
+                                ?.filter(issue => {
+                                  const email = issue.assigneeEmail;
+                                  console.log('Verificando email:', email);
+                                  return email && email.includes('@');
+                                })
+                                .map(issue => issue.assigneeEmail)
+                                .filter((email, index, self) => self.indexOf(email) === index) || []
+                            }}
+                            dateRange={{
+                              from: new Date(filters.dateRange.start),
+                              to: new Date(filters.dateRange.end)
+                            }}
                           />
                         </div>
                       </TabsContent>
