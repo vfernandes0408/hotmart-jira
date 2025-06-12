@@ -381,4 +381,4 @@ export const useGithubBulkData = (emails: string[]) => {
   });
 
   return { mutation };
-}; 
+};

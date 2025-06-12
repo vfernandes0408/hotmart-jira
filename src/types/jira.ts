@@ -113,4 +113,4 @@ export interface JiraChangelog {
     to: string | null;
     toString: string | null;
   }[];
-} 
+}

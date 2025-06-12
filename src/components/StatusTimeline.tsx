@@ -99,4 +99,4 @@ const StatusTimeline: React.FC<StatusTimelineProps> = ({ changelog, selectedStat
   );
 };
 
-export default StatusTimeline; 
+export default StatusTimeline;

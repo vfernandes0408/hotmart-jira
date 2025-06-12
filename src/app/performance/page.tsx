@@ -17,4 +17,4 @@ export default function PerformancePage() {
       {/* Outros gráficos serão adicionados aqui */}
     </PerformanceTrendsContainer>
   );
-} 
+}

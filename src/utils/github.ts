@@ -286,4 +286,4 @@ export const fetchGithubWithRetry = async (url: string, options: RequestInit = {
   }
 
   throw new Error('Máximo de tentativas excedido');
-}; 
+};

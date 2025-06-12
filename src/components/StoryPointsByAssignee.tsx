@@ -183,4 +183,4 @@ const StoryPointsByAssignee: React.FC<StoryPointsByAssigneeProps> = ({ data }) =
   );
 };
 
-export default StoryPointsByAssignee; 
+export default StoryPointsByAssignee;

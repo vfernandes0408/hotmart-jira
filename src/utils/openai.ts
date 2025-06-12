@@ -87,4 +87,4 @@ export async function callOpenAIApi(prompt: string): Promise<string> {
     console.error('Erro ao chamar API OpenAI:', error);
     throw error;
   }
-} 
+}

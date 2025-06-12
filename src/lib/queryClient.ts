@@ -35,4 +35,4 @@ persistQueryClient({
   },
 });
 
-export { queryClient }; 
+export { queryClient };

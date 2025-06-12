@@ -55,4 +55,4 @@ ico_data = ico_header + ico_dir + bmp_header + bytes(pixels) + bytes(and_mask)
 with open('public/favicon.ico', 'wb') as f:
     f.write(ico_data)
 
-print('Favicon.ico criado com sucesso!') 
+print('Favicon.ico criado com sucesso!')

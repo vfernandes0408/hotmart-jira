@@ -13,4 +13,4 @@ export function PerformanceTrendsContainer({ children }: PerformanceTrendsContai
       </div>
     </div>
   );
-} 
+}

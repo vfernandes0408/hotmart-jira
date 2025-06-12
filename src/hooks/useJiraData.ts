@@ -274,4 +274,4 @@ export const useJiraData = (credentials: JiraCredentials | null) => {
     retry: 3,
     initialData: cachedData, // Use cached data as initial data
   });
-}; 
+};

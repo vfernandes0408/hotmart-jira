@@ -83,4 +83,4 @@ export const useGithubData = (token: string, dateRange: { start: string; end: st
     refetchOnWindowFocus: false, // Não recarregar ao focar na janela
     refetchOnMount: false, // Não recarregar ao montar o componente
   });
-}; 
+};

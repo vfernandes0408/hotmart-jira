@@ -307,4 +307,4 @@ const StoryPointsComparison: React.FC<StoryPointsComparisonProps> = ({ data }) =
   );
 };
 
-export default StoryPointsComparison; 
+export default StoryPointsComparison;

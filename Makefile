@@ -134,4 +134,4 @@ pull:
 ## Verifica a saúde dos containers
 health:
 	@echo "$(BLUE)Verificando saúde dos containers...$(NC)"
-	$(DOCKER) ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 
+	$(DOCKER) ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

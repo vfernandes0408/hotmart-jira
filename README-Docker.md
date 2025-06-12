@@ -368,4 +368,4 @@ Para contribuir com melhorias na configuração Docker:
 
 ---
 
-*Para questões específicas sobre Docker, consulte a [documentação oficial](https://docs.docker.com/) ou abra uma issue.* 
+*Para questões específicas sobre Docker, consulte a [documentação oficial](https://docs.docker.com/) ou abra uma issue.*

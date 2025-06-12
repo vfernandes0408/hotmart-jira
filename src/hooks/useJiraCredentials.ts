@@ -80,4 +80,4 @@ export const useJiraCredentials = () => {
     clearCredentials,
     isComplete: !!(credentials.serverUrl && credentials.email && credentials.apiToken),
   };
-}; 
+};

@@ -370,4 +370,4 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
   );
 };
 
-export default GithubMetrics; 
+export default GithubMetrics;

@@ -196,7 +196,7 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filte
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#7C2D12' }}></div>
-                <span>&gt; P90</span>
+                <span>P90</span>
               </div>
             </div>
           </div>
@@ -273,7 +273,7 @@ const CycleTimeScatterplot: React.FC<CycleTimeScatterplotProps> = ({ data, filte
           <div className="text-center">
             <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
             <p className="text-lg font-medium">Nenhum dado disponível</p>
-            <p className="text-sm">Conecte-se ao Jira ou ajuste os filtros</p>
+            <p className="text-sm">Hotmart Jira ou ajuste os filtros</p>
           </div>
         </div>
       )}

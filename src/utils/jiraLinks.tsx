@@ -109,4 +109,4 @@ export const renderTextWithJiraLinks = (text: string): React.ReactNode => {
   }
   
   return <>{parts}</>;
-}; 
+};

@@ -67,7 +67,7 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">Conectar ao Jira</CardTitle>
+        <CardTitle className="text-2xl font-bold">Hotmart Jira Analytics</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">

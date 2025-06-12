@@ -415,4 +415,4 @@ const IssueTimeline: React.FC<IssueTimelineProps> = ({ data }) => {
   );
 };
 
-export default IssueTimeline; 
+export default IssueTimeline;

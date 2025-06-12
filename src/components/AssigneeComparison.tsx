@@ -365,4 +365,4 @@ const AssigneeComparison: React.FC<AssigneeComparisonProps> = ({ data }) => {
   );
 };
 
-export default AssigneeComparison; 
+export default AssigneeComparison;

@@ -117,4 +117,4 @@ const CategoryDebugger: React.FC<CategoryDebuggerProps> = ({ data }) => {
   );
 };
 
-export default CategoryDebugger; 
+export default CategoryDebugger;

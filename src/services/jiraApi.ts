@@ -3,4 +3,4 @@
 // - useJiraComments in src/hooks/useJiraDetails.ts
 // - useJiraChangelog in src/hooks/useJiraDetails.ts
 
-export {}; 
+export {};

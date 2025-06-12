@@ -65,4 +65,4 @@ export const useOpenAIQuery = () => {
       throw error;
     }
   });
-}; 
+};

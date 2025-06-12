@@ -72,4 +72,4 @@ const summary = "Fix bug relacionado ao SCH-123 e dependency do ABC-456";
 
 ## Fallback
 
-Se a URL do Jira não estiver configurada, os IDs são exibidos como texto simples sem links. 
+Se a URL do Jira não estiver configurada, os IDs são exibidos como texto simples sem links.

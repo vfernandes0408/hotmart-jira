@@ -9,4 +9,4 @@ export const getGithubToken = () => {
 export const githubHeaders = {
   Authorization: `Bearer ${getGithubToken()}`,
   Accept: 'application/vnd.github.v3+json',
-}; 
+};

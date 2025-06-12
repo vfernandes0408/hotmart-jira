@@ -40,4 +40,4 @@ export const calculateCycleTime = (
   const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
   return { days, hours };
-}; 
+};
