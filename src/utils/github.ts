@@ -58,7 +58,7 @@ interface GithubGraphQLResponse {
   };
 }
 
-export const fetchGithubUserDataGraphQL = async (username: string): Promise<{
+export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { from: Date; to: Date }): Promise<{
   name: string;
   commits: number;
   prsCreated: number;
@@ -68,12 +68,25 @@ export const fetchGithubUserDataGraphQL = async (username: string): Promise<{
   changedFiles: number;
 }> => {
   console.log('Buscando dados do GitHub para username:', username);
+  console.log('Período recebido:', dateRange);
+
+  // Formata as datas para o formato GitTimestamp (YYYY-MM-DDTHH:mm:ssZ)
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return null;
+    const d = new Date(date);
+    return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  };
+
+  const fromDate = formatDate(dateRange?.from) || "2025-01-01T00:00:00Z";
+  const toDate = formatDate(dateRange?.to) || "2025-12-31T23:59:59Z";
+
+  console.log('Datas formatadas:', { fromDate, toDate });
 
   const query = `
-    query($username: String!) {
+    query($username: String!, $from: DateTime!, $to: DateTime!) {
       user(login: $username) {
         login
-        contributionsCollection(from: "2025-01-01T00:00:00Z", to: "2025-12-31T23:59:59Z") {
+        contributionsCollection(from: $from, to: $to) {
           contributionCalendar {
             totalContributions
           }
@@ -123,7 +136,11 @@ export const fetchGithubUserDataGraphQL = async (username: string): Promise<{
     },
     body: JSON.stringify({
       query,
-      variables: { username },
+      variables: { 
+        username,
+        from: fromDate,
+        to: toDate
+      },
     }),
   });
 

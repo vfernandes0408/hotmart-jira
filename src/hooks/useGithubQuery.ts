@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchGithubWithRetry, fetchGithubUserDataGraphQL } from '@/utils/github';
 import { githubHeaders } from '@/config/github';
 import { useMemo } from 'react';
+import { toast } from 'sonner';
 
 export interface GithubUser {
   name: string;
@@ -230,11 +231,12 @@ const aggregateGithubData = (users: (GithubUser | null)[]): GithubData => {
 };
 
 // Hook para buscar dados de um único usuário
-export const useGithubQuery = (email: string) => {
+export const useGithubQuery = (email: string, dateRange: { from: Date; to: Date }) => {
   console.log('useGithubQuery iniciado para email:', email);
+  console.log('Período:', dateRange);
   
   return useQuery<GithubUser | null>({
-    queryKey: ['github', email],
+    queryKey: ['github', email, dateRange],
     queryFn: async () => {
       try {
         // Extrai o nome do usuário do email (parte antes do @) e remove pontos
@@ -246,7 +248,7 @@ export const useGithubQuery = (email: string) => {
         console.log('Username final:', username);
 
         // Busca dados via GraphQL
-        const result = await fetchGithubUserDataGraphQL(username);
+        const result = await fetchGithubUserDataGraphQL(username, dateRange);
         console.log('Dados processados:', result);
 
         // Adiciona campos extras necessários para a interface GithubUser
@@ -268,117 +270,54 @@ export const useGithubQuery = (email: string) => {
   });
 };
 
-// Hook principal para buscar dados em massa
-export const useGithubBulkData = (emails: string[]) => {
+// Hook para buscar dados em lote
+export const useGithubBulkData = () => {
   const queryClient = useQueryClient();
-  console.log('useGithubBulkData iniciado com emails:', emails);
 
-  const mutation = useMutation({
-    mutationFn: async (params: GithubQueryParams): Promise<GithubData> => {
-      console.log('Iniciando mutation com params:', params);
-      console.log('Emails para processar:', emails);
+  return useMutation({
+    mutationFn: async ({ emails, startDate, endDate }: { 
+      emails: string[]; 
+      startDate: Date; 
+      endDate: Date; 
+    }) => {
+      console.log('Iniciando busca em lote para emails:', emails);
+      console.log('Período:', { startDate, endDate });
 
-      // Remove duplicatas e emails inválidos
-      const uniqueEmails = [...new Set(emails)].filter(email => email && email.includes('@'));
-      console.log('Emails únicos:', uniqueEmails);
+      const results = await Promise.all(
+        emails.map(async (email) => {
+          try {
+            const username = email.split('@')[0].replace(/\./g, '') + '-hotmart';
+            console.log(`Buscando dados para ${email} (${username})`);
+            const data = await fetchGithubUserDataGraphQL(username, { from: startDate, to: endDate });
+            return { email, data };
+          } catch (error) {
+            console.error(`Erro ao buscar dados para ${email}:`, error);
+            return { email, error };
+          }
+        })
+      );
 
-      if (uniqueEmails.length === 0) {
-        console.log('Nenhum email válido para processar');
-        return {
-          commits: 0,
-          pullRequests: 0,
-          reviews: 0,
-          comments: 0,
-          reactions: 0,
-          changedFiles: 0,
-          additions: 0,
-          deletions: 0,
-          lastUpdated: undefined,
-        };
-      }
+      // Atualiza o cache para cada email
+      results.forEach(({ email, data, error }) => {
+        if (data) {
+          queryClient.setQueryData(['github', email], {
+            ...data,
+            email,
+            comments: 0,
+            reactions: 0,
+            lastUpdated: new Date().toISOString(),
+          });
+        }
+      });
 
-      try {
-        console.log('Iniciando busca de dados para cada email');
-        const results = await Promise.all(
-          uniqueEmails.map(async (email) => {
-            try {
-              console.log(`Processando email: ${email}`);
-              const username = email.split('@')[0].replace(/\./g, '') + '-hotmart';
-              console.log(`Username convertido: ${username}`);
-
-              // Busca dados do usuário
-              const userData = await fetchGithubUserDataGraphQL(username);
-              console.log(`Dados encontrados para ${username}:`, userData);
-
-              if (userData) {
-                // Buscar métricas específicas do período
-                console.log(`Buscando métricas do período para ${username}`);
-                const [commitsResponse, prsResponse, reviewsResponse] = await Promise.all([
-                  fetch(`https://api.github.com/search/commits?q=author:${userData.name}+committer-date:${params.startDate.toISOString()}..${params.endDate.toISOString()}`, {
-                    headers: githubHeaders
-                  }),
-                  fetch(`https://api.github.com/search/issues?q=author:${userData.name}+type:pr+created:${params.startDate.toISOString()}..${params.endDate.toISOString()}`, {
-                    headers: githubHeaders
-                  }),
-                  fetch(`https://api.github.com/search/issues?q=reviewed-by:${userData.name}+type:pr+created:${params.startDate.toISOString()}..${params.endDate.toISOString()}`, {
-                    headers: githubHeaders
-                  })
-                ]);
-
-                console.log(`Respostas recebidas para ${username}:`, {
-                  commits: commitsResponse.status,
-                  prs: prsResponse.status,
-                  reviews: reviewsResponse.status
-                });
-
-                const [commitsData, prsData, reviewsData] = await Promise.all([
-                  commitsResponse.json(),
-                  prsResponse.json(),
-                  reviewsResponse.json()
-                ]);
-
-                console.log(`Dados processados para ${username}:`, {
-                  commits: commitsData,
-                  prs: prsData,
-                  reviews: reviewsData
-                });
-
-                const updatedUserData: GithubUser = {
-                  ...userData,
-                  email,
-                  commits: commitsData.total_count || 0,
-                  prsCreated: prsData.total_count || 0,
-                  prsReviewed: reviewsData.total_count || 0,
-                  comments: 0,
-                  reactions: 0,
-                  lastUpdated: new Date().toISOString()
-                };
-
-                console.log(`Dados atualizados para ${username}:`, updatedUserData);
-                queryClient.setQueryData(['github', email], updatedUserData);
-                return updatedUserData;
-              }
-              console.log(`Nenhum dado encontrado para ${username}`);
-              return null;
-            } catch (error) {
-              console.error(`Erro ao processar email ${email}:`, error);
-              const cachedData = queryClient.getQueryData<GithubUser>(['github', email]);
-              console.log('Usando dados em cache para email:', email, cachedData);
-              return cachedData || null;
-            }
-          })
-        );
-
-        console.log('Todos os resultados antes da agregação:', results);
-        const aggregatedData = aggregateGithubData(results);
-        console.log('Dados agregados:', aggregatedData);
-        return aggregatedData;
-      } catch (error) {
-        console.error('Erro ao processar dados em lote:', error);
-        throw error;
-      }
+      return results;
+    },
+    onSuccess: () => {
+      toast.success('Dados do GitHub atualizados com sucesso!');
+    },
+    onError: (error) => {
+      console.error('Erro ao buscar dados em lote:', error);
+      toast.error('Erro ao buscar dados do GitHub');
     },
   });
-
-  return { mutation };
 }; 

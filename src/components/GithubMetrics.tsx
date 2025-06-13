@@ -27,6 +27,29 @@ interface GithubMetricsProps {
   };
 }
 
+// Hook personalizado para gerenciar as queries
+const useGithubQueries = (emails: string[], dateRange: { from: Date; to: Date }) => {
+  const queries = useMemo(() => {
+    if (!Array.isArray(emails)) return [];
+    return emails
+      .filter(Boolean)
+      .map(email => {
+        const username = email.split('@')[0].replace(/\./g, '') + '-hotmart';
+        console.log(`Convertendo email ${email} para username: ${username}`);
+        return { email, username };
+      });
+  }, [emails]);
+
+  const userQueries = queries.map(({ email }) => useGithubQuery(email, dateRange));
+
+  return {
+    queries: userQueries,
+    isLoading: userQueries.some(query => query?.isLoading),
+    isError: userQueries.some(query => query?.isError),
+    refetch: () => userQueries.forEach(query => query?.refetch())
+  };
+};
+
 const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
   const { emails = [] } = data || {};
   const { isConfigured } = useApiKeys();
@@ -51,30 +74,25 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     return sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   };
 
-  // Busca dados do GitHub para cada email
-  const userQueries = emails.map(email => {
-    // Extrai o nome do usuário do email (parte antes do @) e remove pontos
-    const username = email.split('@')[0].replace(/\./g, '') + '-hotmart';
-    console.log(`Convertendo email ${email} para username: ${username}`);
-    const query = useGithubQuery(email);
-    console.log('Estado da query para', email, {
-      data: query.data,
-      isLoading: query.isLoading,
-      isError: query.isError,
-      error: query.error
-    });
-    return query;
-  });
-
-  console.log('Queries criadas:', userQueries.map(q => ({
-    email: q.data?.email,
-    isLoading: q.isLoading,
-    isError: q.isError,
-    error: q.error
-  })));
+  // Memoize as datas para evitar recriações desnecessárias
+  const memoizedDateRange = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) {
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+      return { from: startOfYear, to: endOfYear };
+    }
+    return {
+      from: new Date(dateRange.from),
+      to: new Date(dateRange.to)
+    };
+  }, [dateRange?.from, dateRange?.to]);
 
   // Hook para buscar dados em lote
-  const { mutation } = useGithubBulkData(emails);
+  const mutation = useGithubBulkData();
+
+  // Usar o hook personalizado para gerenciar as queries
+  const { queries: userQueries, isLoading: queriesLoading, isError: queriesError, refetch: refetchQueries } = useGithubQueries(emails, memoizedDateRange);
 
   // Calcula métricas totais
   const githubData = useMemo(() => {
@@ -88,6 +106,7 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
 
     const validUsers = userQueries
       .filter(query => {
+        if (!query) return false;
         const isValid = query.data !== null && !query.isError;
         console.log(`Filtrando usuário ${query.data?.email}:`, { 
           isValid, 
@@ -97,9 +116,10 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
         });
         return isValid;
       })
-      .map(query => query.data as GithubUser);
+      .map(query => query.data as GithubUser)
+      .filter(Boolean);
 
-    if (validUsers.length === 0) {
+    if (!validUsers || validUsers.length === 0) {
       console.log('Nenhum usuário válido encontrado');
       return null;
     }
@@ -120,22 +140,27 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     return totals;
   }, [userQueries]);
 
-  const isLoading = userQueries.some(query => query.isLoading) || mutation.isPending;
-  const isError = userQueries.some(query => query.isError);
+  const isLoading = queriesLoading || mutation.isPending;
+  const isError = queriesError;
 
   console.log('Estado de loading:', isLoading);
   console.log('Estado de erro:', isError);
 
   const handleRefresh = () => {
     console.log('Atualizando dados do GitHub...');
-    userQueries.forEach(query => query.refetch());
+    refetchQueries();
   };
 
   const handleImport = () => {
-    console.log('Importando dados do GitHub...', { emails, dateRange });
+    if (!Array.isArray(emails) || emails.length === 0) {
+      toast.error('Nenhum email válido para importar');
+      return;
+    }
+    console.log('Importando dados do GitHub...', { emails, dateRange: memoizedDateRange });
     mutation.mutate({
-      startDate: dateRange.from,
-      endDate: dateRange.to
+      emails,
+      startDate: memoizedDateRange.from,
+      endDate: memoizedDateRange.to
     });
   };
 
@@ -147,10 +172,11 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
   // Ordena os usuários válidos
   const sortedUsers = useMemo(() => {
     const validUsers = userQueries
-      .filter(query => query.data !== null && !query.isError)
-      .map(query => query.data as GithubUser);
+      .filter(query => query && query.data !== null && !query.isError)
+      .map(query => query.data as GithubUser)
+      .filter(Boolean);
 
-    if (!validUsers.length) return [];
+    if (!validUsers || validUsers.length === 0) return [];
     
     return [...validUsers].sort((a, b) => {
       const aValue = a[sortField] ?? 0;
@@ -215,7 +241,7 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
             variant="outline"
             size="icon"
             onClick={handleImport}
-            disabled={isLoading || emails.length === 0}
+            disabled={isLoading || !Array.isArray(emails) || emails.length === 0}
           >
             <Github className="h-4 w-4" />
           </Button>
