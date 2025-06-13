@@ -67,8 +67,7 @@ export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { 
   deletions: number;
   changedFiles: number;
 }> => {
-  console.log('Buscando dados do GitHub para username:', username);
-  console.log('Período recebido:', dateRange);
+
 
   // Formata as datas para o formato GitTimestamp (YYYY-MM-DDTHH:mm:ssZ)
   const formatDate = (date: Date | undefined) => {
@@ -80,7 +79,6 @@ export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { 
   const fromDate = formatDate(dateRange?.from) || "2025-01-01T00:00:00Z";
   const toDate = formatDate(dateRange?.to) || "2025-12-31T23:59:59Z";
 
-  console.log('Datas formatadas:', { fromDate, toDate });
 
   const query = `
     query($username: String!, $from: DateTime!, $to: DateTime!) {
@@ -155,15 +153,7 @@ export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { 
   }
 
   const data = await response.json();
-  console.log('Resposta GraphQL completa:', JSON.stringify(data, null, 2));
-  console.log('Dados do usuário:', {
-    login: data.data?.user?.login,
-    contributions: data.data?.user?.contributionsCollection?.contributionCalendar?.totalContributions,
-    repositories: data.data?.user?.contributionsCollection?.commitContributionsByRepository?.map((repo: any) => ({
-      name: repo.repository.name,
-      contributions: repo.contributions.totalCount
-    }))
-  });
+
 
   if (data.errors) {
     console.error('Erros na resposta GraphQL:', data.errors);
@@ -189,16 +179,10 @@ export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { 
   // Calcula totais de adições, deleções e arquivos alterados dos PRs
   const stats = contributionsCollection.pullRequestContributionsByRepository.reduce(
     (acc, repo) => {
-      console.log('Processando repositório:', repo.repository.name);
       const repoStats = repo.contributions.nodes.reduce(
         (repoAcc, node) => {
           const pr = node.pullRequest;
-          console.log('Processando PR:', {
-            additions: pr?.additions,
-            deletions: pr?.deletions,
-            changedFiles: pr?.changedFiles,
-            commits: pr?.commits.totalCount
-          });
+
 
           // Soma as adições, deleções e arquivos alterados do PR
           return {
@@ -210,7 +194,6 @@ export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { 
         { additions: 0, deletions: 0, changedFiles: 0 }
       );
 
-      console.log('Estatísticas do repositório:', repoStats);
 
       return {
         additions: acc.additions + repoStats.additions,
@@ -221,7 +204,6 @@ export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { 
     { additions: 0, deletions: 0, changedFiles: 0 }
   );
 
-  console.log('Estatísticas finais:', stats);
 
   // Calcula totais de commits, PRs e reviews
   const commits = contributionsCollection.commitContributionsByRepository.reduce(
@@ -249,7 +231,7 @@ export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { 
     changedFiles: stats.changedFiles,
   };
 
-  console.log('Resultado final:', result);
+
   return result;
 };
 
@@ -272,7 +254,6 @@ export const fetchGithubWithRetry = async (url: string, options: RequestInit = {
       const rateLimitReset = response.headers.get('x-ratelimit-reset');
       
       if (rateLimitRemaining) {
-        console.log(`GitHub Rate Limit - Restantes: ${rateLimitRemaining}, Reset em: ${new Date(Number(rateLimitReset) * 1000).toLocaleString()}`);
         
         // Aviso quando estiver próximo do limite
         if (Number(rateLimitRemaining) < 100) {
