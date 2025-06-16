@@ -9,13 +9,10 @@ interface JiraCredentials {
 
 const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
   try {
-    console.log('Mapeando issue:', apiIssue.key);
-    console.log('Assignee original:', apiIssue.fields.assignee);
 
     // Helper function to validate and parse story points
     const parseStoryPoints = (value: unknown): number => {
       // Log the raw value for debugging
-      console.log('Raw story points value:', value, typeof value);
 
       // Handle number case
       if (typeof value === 'number' && !isNaN(value)) {
@@ -60,18 +57,7 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       apiIssue.fields.story_points
     ];
 
-    // Log all custom fields for debugging
-    console.log('Custom fields values for issue', apiIssue.key, ':', {
-      customfield_10016: apiIssue.fields.customfield_10016,
-      customfield_10004: apiIssue.fields.customfield_10004,
-      customfield_10002: apiIssue.fields.customfield_10002,
-      customfield_10020: apiIssue.fields.customfield_10020,
-      customfield_10011: apiIssue.fields.customfield_10011,
-      customfield_10028: apiIssue.fields.customfield_10028,
-      customfield_10024: apiIssue.fields.customfield_10024,
-      storypoints: apiIssue.fields.storypoints,
-      story_points: apiIssue.fields.story_points
-    });
+
 
     // Try each field and use the first valid value
     let storyPoints = 0;
@@ -79,13 +65,11 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       const parsedValue = parseStoryPoints(field);
       if (parsedValue > 0) {
         storyPoints = parsedValue;
-        console.log('Found valid story points:', storyPoints, 'from field:', field);
         break;
       }
     }
 
     // Log the final story points value
-    console.log('Final story points value for issue', apiIssue.key, ':', storyPoints);
 
     // Status que indicam desenvolvimento ativo
     const developmentStatuses = ['Em Desenvolvimento', 'Developing', 'In Progress', 'Em Progresso'];
@@ -169,7 +153,6 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
       components: apiIssue.fields.components?.map(c => c.name) || [],
     };
 
-    console.log('Issue mapeada:', mappedIssue);
     return mappedIssue;
   } catch (error) {
     console.error('Error mapping Jira issue:', error);
@@ -178,7 +161,6 @@ const mapJiraIssueToLocal = (apiIssue: JiraApiIssue): JiraIssue | null => {
 };
 
 const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]> => {
-  console.log('Iniciando busca de dados do Jira...');
   const auth = btoa(`${credentials.email}:${credentials.apiToken}`);
   const url = "/api/jira/rest/api/3/search";
 
@@ -186,7 +168,6 @@ const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]>
     ? `project = "${credentials.projectKey}" ORDER BY created DESC`
     : "ORDER BY created DESC";
 
-  console.log('JQL:', jql);
 
   let allIssues: JiraIssue[] = [];
   let startAt = 0;
@@ -202,7 +183,6 @@ const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]>
       expand: "changelog"
     });
 
-    console.log('Buscando issues...', { startAt, maxResults });
 
     const response = await fetch(`${url}?${params}`, {
       method: "GET",
@@ -226,7 +206,6 @@ const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]>
     }
 
     const data = await response.json();
-    console.log('Resposta do Jira:', data);
 
     if (data.issues && data.issues.length > 0) {
       const mappedIssues = data.issues
@@ -234,7 +213,6 @@ const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]>
         .filter((issue): issue is JiraIssue => issue !== null);
       allIssues = [...allIssues, ...mappedIssues];
 
-      console.log('Total de issues mapeados:', allIssues.length);
 
       startAt += maxResults;
       hasMoreResults = data.total > startAt;
@@ -251,7 +229,6 @@ const fetchJiraData = async (credentials: JiraCredentials): Promise<JiraIssue[]>
     throw new Error("Nenhum issue encontrado no projeto especificado.");
   }
 
-  console.log('Dados finais do Jira:', allIssues);
   return allIssues;
 };
 

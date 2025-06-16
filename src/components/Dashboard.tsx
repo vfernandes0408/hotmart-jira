@@ -49,87 +49,23 @@ interface DashboardProps {
   onGithubClick: () => void;
 }
 
-interface DateRangeFilterProps {
-  dateRange: { start: string; end: string };
-  onDateRangeChange: (key: string, value: string) => void;
-}
-
 const getFirstDayOfCurrentMonth = () => {
   const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  return new Date(today.getFullYear(), today.getMonth(), 1)
+    .toISOString()
+    .split("T")[0];
 };
 
 const getCurrentDate = () => {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toISOString().split("T")[0];
 };
 
-const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onDateRangeChange }) => {
-  // Formatar a data de hoje no formato YYYY-MM-DD
-  const today = getCurrentDate();
-
-  // Efeito para inicializar as datas quando o componente montar
-  useEffect(() => {
-    if (!dateRange.start || !dateRange.end) {
-      onDateRangeChange('start', getFirstDayOfCurrentMonth());
-      onDateRangeChange('end', today);
-    }
-  }, [dateRange.start, dateRange.end, onDateRangeChange, today]);
-
-  const handleDateChange = (key: string, value: string) => {
-    // Se a data selecionada é maior que hoje, não atualiza
-    if (value > today) {
-      return;
-    }
-
-    // Se é data final, não pode ser menor que a data inicial
-    if (key === 'end' && value < dateRange.start) {
-      return;
-    }
-
-    // Se é data inicial, não pode ser maior que a data final
-    if (key === 'start' && dateRange.end && value > dateRange.end) {
-      return;
-    }
-
-    onDateRangeChange(key, value);
-  };
-
-  return (
-    <div className="flex items-center justify-end mb-1">
-      <div className="flex items-center gap-2">
-        <Calendar className="w-4 h-4 text-gray-500" />
-        <Label htmlFor="start-date" className="text-sm">
-          Data Inicial
-        </Label>
-        <Input
-          type="date"
-          id="start-date"
-          value={dateRange.start}
-          onChange={(e) => handleDateChange("start", e.target.value)}
-          className="w-40"
-          max={today}
-        />
-      </div>
-      <div className="flex items-center gap-2 ml-4">
-        <Calendar className="w-4 h-4 text-gray-500" />
-        <Label htmlFor="end-date" className="text-sm">
-          Data Final
-        </Label>
-        <Input
-          type="date"
-          id="end-date"
-          value={dateRange.end}
-          onChange={(e) => handleDateChange("end", e.target.value)}
-          className="w-40"
-          max={today}
-          min={dateRange.start}
-        />
-      </div>
-    </div>
-  );
-};
-
-const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: DashboardProps) => {
+const Dashboard = ({
+  initialData,
+  iaKeys = {},
+  onIaClick,
+  onGithubClick,
+}: DashboardProps) => {
   const queryClient = useQueryClient();
   const { isConfigured } = useApiKeys();
   const [isConnected, setIsConnected] = useState(false);
@@ -152,20 +88,6 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     },
   });
   const [showFilters, setShowFilters] = useState(true);
-
-  // Funções para gerenciar sessão
-  const saveSession = useCallback((data: JiraIssue[], projectKey: string) => {
-    const sessionData: SessionData = {
-      jiraData: data,
-      projectKey,
-      timestamp: Date.now(),
-    };
-    try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-    } catch (error) {
-      console.error("Erro ao salvar sessão:", error);
-    }
-  }, []);
 
   const clearSession = useCallback(() => {
     try {
@@ -209,7 +131,6 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
 
     const timer = setTimeout(() => {
       handleLogout();
-      console.log("Sessão expirada após 10 minutos");
     }, SESSION_DURATION);
 
     setSessionTimer(timer);
@@ -224,7 +145,6 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
       setProjectKey(existingSession.projectKey);
       setIsConnected(true);
       startSessionTimer();
-      console.log("Sessão restaurada automaticamente");
     }
 
     // Clean up any potential external data interference
@@ -259,15 +179,15 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Ctrl/Cmd + B para toggle da sidebar
-      if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+      if ((event.ctrlKey || event.metaKey) && event.key === "b") {
         event.preventDefault();
-        setIsSidebarVisible(prev => !prev);
+        setIsSidebarVisible((prev) => !prev);
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
@@ -280,10 +200,10 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
     const hours = Math.floor(minutes / 60);
 
     // Formatar a hora no formato 24h (HH:mm)
-    const timeStr = date.toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
+    const timeStr = date.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     });
 
     if (minutes < 1) {
@@ -371,7 +291,7 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
         : [newFilters.labels];
       filtered = filtered.filter((item: JiraIssue) => {
         if (!item.labels || !Array.isArray(item.labels)) return false;
-        return labels.some(label => item.labels.includes(label));
+        return labels.some((label) => item.labels.includes(label));
       });
     }
 
@@ -416,7 +336,9 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
   useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe(() => {
       const queries = queryClient.getQueryCache().getAll();
-      const isFetching = queries.some(query => query.state.fetchStatus === 'fetching');
+      const isFetching = queries.some(
+        (query) => query.state.fetchStatus === "fetching"
+      );
       setIsRefreshing(isFetching);
     });
 
@@ -545,14 +467,18 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                       <Input
                         type="date"
                         value={filters.dateRange.start}
-                        onChange={(e) => handleDateRangeChange("start", e.target.value)}
+                        onChange={(e) =>
+                          handleDateRangeChange("start", e.target.value)
+                        }
                         className="h-8 text-xs w-36"
                       />
                       <span className="text-xs text-zinc-400">até</span>
                       <Input
                         type="date"
                         value={filters.dateRange.end}
-                        onChange={(e) => handleDateRangeChange("end", e.target.value)}
+                        onChange={(e) =>
+                          handleDateRangeChange("end", e.target.value)
+                        }
                         className="h-8 text-xs w-36"
                       />
                     </div>
@@ -581,8 +507,8 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                   </Button>
                 </>
               )}
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="outline"
                 onClick={() => onIaClick("openai")}
                 className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
@@ -640,10 +566,12 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
               {/* Main Dashboard Content - Responsive flex layout */}
               <div className="flex-1 flex gap-3 min-h-0 overflow-hidden">
                 {/* Filters Panel - Collapsible sidebar */}
-                <div className={cn(
-                  "bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden transition-all duration-300",
-                  showFilters ? "w-72" : "w-12"
-                )}>
+                <div
+                  className={cn(
+                    "bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden transition-all duration-300",
+                    showFilters ? "w-72" : "w-12"
+                  )}
+                >
                   <FiltersPanel
                     data={jiraData}
                     filters={filters}
@@ -656,17 +584,60 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col min-w-0">
                   {/* Tabs */}
-                  <Tabs defaultValue="scatterplot" className="flex-1 flex flex-col min-h-0">
+                  <Tabs
+                    defaultValue="scatterplot"
+                    className="flex-1 flex flex-col min-h-0"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <TabsList className="h-9 lg:h-10">
-                        <TabsTrigger value="scatterplot" className="text-xs lg:text-sm">Cycle Time</TabsTrigger>
-                        <TabsTrigger value="trends" className="text-xs lg:text-sm">Tendências</TabsTrigger>
-                        <TabsTrigger value="performance" className="text-xs lg:text-sm">Performance</TabsTrigger>
-                        <TabsTrigger value="timeline" className="text-xs lg:text-sm">Timeline</TabsTrigger>
-                        <TabsTrigger value="comparison" className="text-xs lg:text-sm">Labels</TabsTrigger>
-                        <TabsTrigger value="assignee-comparison" className="text-xs lg:text-sm">Assignees</TabsTrigger>
-                        <TabsTrigger value="github-metrics" className="text-xs lg:text-sm">GitHub</TabsTrigger>
-                        <TabsTrigger value="tickets" className="text-xs lg:text-sm">Tickets</TabsTrigger>
+                        <TabsTrigger
+                          value="scatterplot"
+                          className="text-xs lg:text-sm"
+                        >
+                          Cycle Time
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="trends"
+                          className="text-xs lg:text-sm"
+                        >
+                          Tendências
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="performance"
+                          className="text-xs lg:text-sm"
+                        >
+                          Performance
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="timeline"
+                          className="text-xs lg:text-sm"
+                        >
+                          Timeline
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="comparison"
+                          className="text-xs lg:text-sm"
+                        >
+                          Labels
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="assignee-comparison"
+                          className="text-xs lg:text-sm"
+                        >
+                          Assignees
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="github-metrics"
+                          className="text-xs lg:text-sm"
+                        >
+                          GitHub
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="tickets"
+                          className="text-xs lg:text-sm"
+                        >
+                          Tickets
+                        </TabsTrigger>
                       </TabsList>
 
                       <div className="flex items-center gap-2">
@@ -709,15 +680,15 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
 
                     {/* Chart Content */}
                     <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden">
-                      <TabsContent
-                        value="scatterplot"
-                        className="h-full m-0"
-                      >
-                        <CycleTimeScatterplot data={filteredData} filters={filters} />
+                      <TabsContent value="scatterplot" className="h-full m-0">
+                        <CycleTimeScatterplot
+                          data={filteredData}
+                          filters={filters}
+                        />
                       </TabsContent>
 
-                      <TabsContent 
-                        value="trends" 
+                      <TabsContent
+                        value="trends"
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
@@ -730,7 +701,10 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
-                          <PerformanceChart data={filteredData} filters={filters} />
+                          <PerformanceChart
+                            data={filteredData}
+                            filters={filters}
+                          />
                         </div>
                       </TabsContent>
 
@@ -770,32 +744,38 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                       >
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           {(() => {
-                            console.log('Dados antes do filtro:', filteredData);
-                            const emails = filteredData
-                              ?.filter(issue => {
-                                const email = issue.assigneeEmail;
-                                console.log('Verificando email:', email);
-                                return email && email.includes('@');
-                              })
-                              .map(issue => issue.assigneeEmail)
-                              .filter((email, index, self) => self.indexOf(email) === index) || [];
-                            console.log('Emails extraídos:', emails);
+                            const emails =
+                              filteredData
+                                ?.filter((issue) => {
+                                  const email = issue.assigneeEmail;
+
+                                  return email && email.includes("@");
+                                })
+                                .map((issue) => issue.assigneeEmail)
+                                .filter(
+                                  (email, index, self) =>
+                                    self.indexOf(email) === index
+                                ) || [];
                             return null;
                           })()}
-                          <GithubMetrics 
+                          <GithubMetrics
                             data={{
-                              emails: filteredData
-                                ?.filter(issue => {
-                                  const email = issue.assigneeEmail;
-                                  console.log('Verificando email:', email);
-                                  return email && email.includes('@');
-                                })
-                                .map(issue => issue.assigneeEmail)
-                                .filter((email, index, self) => self.indexOf(email) === index) || []
+                              emails:
+                                filteredData
+                                  ?.filter((issue) => {
+                                    const email = issue.assigneeEmail;
+
+                                    return email && email.includes("@");
+                                  })
+                                  .map((issue) => issue.assigneeEmail)
+                                  .filter(
+                                    (email, index, self) =>
+                                      self.indexOf(email) === index
+                                  ) || [],
                             }}
                             dateRange={{
                               from: new Date(filters.dateRange.start),
-                              to: new Date(filters.dateRange.end)
+                              to: new Date(filters.dateRange.end),
                             }}
                           />
                         </div>
@@ -806,7 +786,10 @@ const Dashboard = ({ initialData, iaKeys = {}, onIaClick, onGithubClick }: Dashb
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
-                          <TicketList data={filteredData} projectKey={projectKey} />
+                          <TicketList
+                            data={filteredData}
+                            projectKey={projectKey}
+                          />
                         </div>
                       </TabsContent>
                     </div>

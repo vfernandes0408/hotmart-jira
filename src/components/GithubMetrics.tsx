@@ -1,21 +1,38 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, Github, ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
-import { useApiKeys } from '@/hooks/useApiKeys';
-import { toast } from 'sonner';
-import { JiraIssue } from '@/types/jira';
-import { useGithubBulkData, useGithubQuery, GithubUser } from '@/hooks/useGithubQuery';
-import { format, startOfMonth, subDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import React, { useState, useEffect, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  RefreshCw,
+  Github,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+} from "lucide-react";
+import { useApiKeys } from "@/hooks/useApiKeys";
+import { toast } from "sonner";
+import { JiraIssue } from "@/types/jira";
+import {
+  useGithubBulkData,
+  useGithubQuery,
+  GithubUser,
+} from "@/hooks/useGithubQuery";
+import { format, startOfMonth, subDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-type SortField = 'name' | 'commits' | 'prsCreated' | 'prsReviewed' | 'additions' | 'deletions' | 'changedFiles';
-type SortOrder = 'asc' | 'desc';
+type SortField =
+  | "name"
+  | "commits"
+  | "prsCreated"
+  | "prsReviewed"
+  | "additions"
+  | "deletions"
+  | "changedFiles";
+type SortOrder = "asc" | "desc";
 
 interface GithubMetricsProps {
   data: {
@@ -27,136 +44,184 @@ interface GithubMetricsProps {
   };
 }
 
-const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
-  const { emails = [] } = data || {};
-  const { isConfigured } = useApiKeys();
-  
-  console.log('Emails recebidos:', emails);
-  console.log('GitHub configurado:', isConfigured('github'));
+// Hook personalizado para gerenciar as queries
+const useGithubQueries = (
+  emails: string[],
+  dateRange: { from: Date; to: Date }
+) => {
+  // Ensure emails is an array and filter out invalid values
+  const queries = useMemo(() => {
+    const validEmails = (Array.isArray(emails) ? emails : [])
+      .filter(email => typeof email === 'string' && email.includes('@'))
+      .map((email) => {
+        const username = email.split("@")[0].replace(/\./g, "") + "-hotmart";
+        return { email, username };
+      });
+    return validEmails;
+  }, []);
 
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const userQueries = queries.map(({ email }) =>
+    useGithubQuery(email, dateRange)
+  );
+
+  return {
+    queries: userQueries,
+    isLoading: userQueries.some((query) => query?.isLoading),
+    isError: userQueries.some((query) => query?.isError),
+    refetch: () => userQueries.forEach((query) => query?.refetch()),
+  };
+};
+
+const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
+  // Ensure emails is always an array
+  const emails = Array.isArray(data?.emails) ? data.emails : [];
+  const { isConfigured } = useApiKeys();
+
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortOrder('asc');
+      setSortOrder("asc");
     }
   };
 
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) return <ChevronsUpDown className="h-4 w-4" />;
-    return sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
+    return sortOrder === "asc" ? (
+      <ChevronUp className="h-4 w-4" />
+    ) : (
+      <ChevronDown className="h-4 w-4" />
+    );
   };
 
-  // Busca dados do GitHub para cada email
-  const userQueries = emails.map(email => {
-    // Extrai o nome do usuário do email (parte antes do @) e remove pontos
-    const username = email.split('@')[0].replace(/\./g, '') + '-hotmart';
-    console.log(`Convertendo email ${email} para username: ${username}`);
-    const query = useGithubQuery(email);
-    console.log('Estado da query para', email, {
-      data: query.data,
-      isLoading: query.isLoading,
-      isError: query.isError,
-      error: query.error
-    });
-    return query;
-  });
-
-  console.log('Queries criadas:', userQueries.map(q => ({
-    email: q.data?.email,
-    isLoading: q.isLoading,
-    isError: q.isError,
-    error: q.error
-  })));
+  // Memoize as datas para evitar recriações desnecessárias
+  const memoizedDateRange = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) {
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+      return { from: startOfYear, to: endOfYear };
+    }
+    return {
+      from: new Date(dateRange.from),
+      to: new Date(dateRange.to),
+    };
+  }, [dateRange?.from, dateRange?.to]);
 
   // Hook para buscar dados em lote
-  const { mutation } = useGithubBulkData(emails);
+  const mutation = useGithubBulkData();
+
+  // Usar o hook personalizado para gerenciar as queries
+
+  const {
+    queries: userQueries,
+    isLoading: queriesLoading,
+    isError: queriesError,
+    refetch: refetchQueries,
+  } = useGithubQueries(emails, memoizedDateRange);
 
   // Calcula métricas totais
   const githubData = useMemo(() => {
-    console.log('Iniciando cálculo de métricas...');
-    console.log('Estado das queries:', userQueries.map(q => ({
-      email: q.data?.email,
-      isLoading: q.isLoading,
-      isError: q.isError,
-      error: q.error
-    })));
+    if (!Array.isArray(userQueries)) return null;
 
     const validUsers = userQueries
-      .filter(query => {
-        const isValid = query.data !== null && !query.isError;
-        console.log(`Filtrando usuário ${query.data?.email}:`, { 
-          isValid, 
-          hasData: !!query.data, 
-          isError: query.isError,
-          data: query.data 
-        });
-        return isValid;
+      .filter((query): query is ReturnType<typeof useGithubQuery> & { data: GithubUser } => {
+        return query?.data !== null && !query?.isError;
       })
-      .map(query => query.data as GithubUser);
+      .map((query) => query.data);
 
-    if (validUsers.length === 0) {
-      console.log('Nenhum usuário válido encontrado');
-      return null;
+    if (!validUsers || validUsers.length === 0) {
+      return {
+        commits: 0,
+        pullRequests: 0,
+        reviews: 0,
+        comments: 0,
+        reactions: 0,
+        changedFiles: 0,
+        additions: 0,
+        deletions: 0,
+        lastUpdated: new Date().toISOString(),
+      };
     }
 
     const totals = {
       commits: validUsers.reduce((acc, user) => acc + (user?.commits || 0), 0),
-      pullRequests: validUsers.reduce((acc, user) => acc + (user?.prsCreated || 0), 0),
-      reviews: validUsers.reduce((acc, user) => acc + (user?.prsReviewed || 0), 0),
-      comments: validUsers.reduce((acc, user) => acc + (user?.comments || 0), 0),
-      reactions: validUsers.reduce((acc, user) => acc + (user?.reactions || 0), 0),
-      changedFiles: validUsers.reduce((acc, user) => acc + (user?.changedFiles || 0), 0),
-      additions: validUsers.reduce((acc, user) => acc + (user?.additions || 0), 0),
-      deletions: validUsers.reduce((acc, user) => acc + (user?.deletions || 0), 0),
+      pullRequests: validUsers.reduce(
+        (acc, user) => acc + (user?.prsCreated || 0),
+        0
+      ),
+      reviews: validUsers.reduce(
+        (acc, user) => acc + (user?.prsReviewed || 0),
+        0
+      ),
+      comments: validUsers.reduce(
+        (acc, user) => acc + (user?.comments || 0),
+        0
+      ),
+      reactions: validUsers.reduce(
+        (acc, user) => acc + (user?.reactions || 0),
+        0
+      ),
+      changedFiles: validUsers.reduce(
+        (acc, user) => acc + (user?.changedFiles || 0),
+        0
+      ),
+      additions: validUsers.reduce(
+        (acc, user) => acc + (user?.additions || 0),
+        0
+      ),
+      deletions: validUsers.reduce(
+        (acc, user) => acc + (user?.deletions || 0),
+        0
+      ),
       lastUpdated: new Date().toISOString(),
     };
 
-    console.log('Totais calculados:', totals);
     return totals;
-  }, [userQueries]);
+  }, []);
 
-  const isLoading = userQueries.some(query => query.isLoading) || mutation.isPending;
-  const isError = userQueries.some(query => query.isError);
-
-  console.log('Estado de loading:', isLoading);
-  console.log('Estado de erro:', isError);
+  const isLoading = queriesLoading || mutation.isPending;
+  const isError = queriesError;
 
   const handleRefresh = () => {
-    console.log('Atualizando dados do GitHub...');
-    userQueries.forEach(query => query.refetch());
+    refetchQueries();
   };
 
   const handleImport = () => {
-    console.log('Importando dados do GitHub...', { emails, dateRange });
+    if (!Array.isArray(emails) || emails.length === 0) {
+      toast.error("Nenhum email válido para importar");
+      return;
+    }
     mutation.mutate({
-      startDate: dateRange.from,
-      endDate: dateRange.to
+      emails,
+      startDate: memoizedDateRange.from,
+      endDate: memoizedDateRange.to,
     });
   };
 
   const renderMetricValue = (value: number | undefined) => {
-    if (value === undefined) return '-';
+    if (value === undefined) return "-";
     return value.toLocaleString();
   };
 
   // Ordena os usuários válidos
   const sortedUsers = useMemo(() => {
     const validUsers = userQueries
-      .filter(query => query.data !== null && !query.isError)
-      .map(query => query.data as GithubUser);
+      .filter((query) => query && query.data !== null && !query.isError)
+      .map((query) => query.data as GithubUser)
+      .filter(Boolean);
 
-    if (!validUsers.length) return [];
-    
+    if (!validUsers || validUsers.length === 0) return [];
+
     return [...validUsers].sort((a, b) => {
       const aValue = a[sortField] ?? 0;
       const bValue = b[sortField] ?? 0;
-      
-      if (sortOrder === 'asc') {
+
+      if (sortOrder === "asc") {
         return aValue > bValue ? 1 : -1;
       } else {
         return aValue < bValue ? 1 : -1;
@@ -164,11 +229,13 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     });
   }, [userQueries, sortField, sortOrder]);
 
-  if (!isConfigured('github')) {
+  if (!isConfigured("github")) {
     return (
       <Card className="col-span-full xl:col-span-2">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Métricas do GitHub</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            Métricas do GitHub
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center p-4 text-center">
@@ -179,7 +246,7 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
               variant="outline"
               size="sm"
               onClick={() => {
-                const event = new CustomEvent('openGithubModal');
+                const event = new CustomEvent("openGithubModal");
                 window.dispatchEvent(event);
               }}
             >
@@ -195,10 +262,17 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     <Card className="col-span-full xl:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex flex-col">
-          <CardTitle className="text-sm font-medium">Métricas do GitHub</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            Métricas do GitHub
+          </CardTitle>
           {githubData?.lastUpdated && (
             <span className="text-xs text-muted-foreground">
-              Atualizado em {format(new Date(githubData.lastUpdated), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              Atualizado em{" "}
+              {format(
+                new Date(githubData.lastUpdated),
+                "dd/MM/yyyy 'às' HH:mm",
+                { locale: ptBR }
+              )}
             </span>
           )}
         </div>
@@ -209,13 +283,17 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
             onClick={handleRefresh}
             disabled={isLoading || !githubData}
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+            />
           </Button>
           <Button
             variant="outline"
             size="icon"
             onClick={handleImport}
-            disabled={isLoading || emails.length === 0}
+            disabled={
+              isLoading || !Array.isArray(emails) || emails.length === 0
+            }
           >
             <Github className="h-4 w-4" />
           </Button>
@@ -231,7 +309,9 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
               </div>
               <div className="space-y-2">
                 <div className="text-sm font-medium">Pull Requests</div>
-                <div className="text-2xl font-bold">{githubData.pullRequests}</div>
+                <div className="text-2xl font-bold">
+                  {githubData.pullRequests}
+                </div>
               </div>
               <div className="space-y-2">
                 <div className="text-sm font-medium">Reviews</div>
@@ -239,18 +319,24 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
               </div>
               <div className="space-y-2">
                 <div className="text-sm font-medium">Total de Alterações</div>
-                <div className="text-2xl font-bold">{githubData.changedFiles.toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {githubData.changedFiles.toLocaleString()}
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 pt-4 border-t">
               <div className="space-y-2">
                 <div className="text-sm font-medium">Linhas Adicionadas</div>
-                <div className="text-2xl font-bold text-green-600">+{githubData.additions.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-green-600">
+                  +{githubData.additions.toLocaleString()}
+                </div>
               </div>
               <div className="space-y-2">
                 <div className="text-sm font-medium">Linhas Removidas</div>
-                <div className="text-2xl font-bold text-red-600">-{githubData.deletions.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-red-600">
+                  -{githubData.deletions.toLocaleString()}
+                </div>
               </div>
             </div>
 
@@ -262,54 +348,54 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
 
               <CollapsibleContent className="mt-4 space-y-4">
                 <div className="grid grid-cols-3 gap-2 text-sm font-medium mb-2">
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => handleSort('name')}
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleSort("name")}
                   >
-                    Nome {getSortIcon('name')}
+                    Nome {getSortIcon("name")}
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => handleSort('commits')}
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleSort("commits")}
                   >
-                    Commits {getSortIcon('commits')}
+                    Commits {getSortIcon("commits")}
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => handleSort('prsCreated')}
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleSort("prsCreated")}
                   >
-                    PRs {getSortIcon('prsCreated')}
+                    PRs {getSortIcon("prsCreated")}
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => handleSort('prsReviewed')}
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleSort("prsReviewed")}
                   >
-                    Reviews {getSortIcon('prsReviewed')}
+                    Reviews {getSortIcon("prsReviewed")}
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => handleSort('additions')}
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleSort("additions")}
                   >
-                    Adições {getSortIcon('additions')}
+                    Adições {getSortIcon("additions")}
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => handleSort('deletions')}
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleSort("deletions")}
                   >
-                    Remoções {getSortIcon('deletions')}
+                    Remoções {getSortIcon("deletions")}
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => handleSort('changedFiles')}
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleSort("changedFiles")}
                   >
-                    Mudanças {getSortIcon('changedFiles')}
+                    Mudanças {getSortIcon("changedFiles")}
                   </Button>
                 </div>
                 {sortedUsers.map((userData) => {
@@ -317,39 +403,68 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
                   return (
                     <div key={userData.email} className="border rounded-lg p-4">
                       <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium">{userData.name || userData.email}</h4>
+                        <h4 className="font-medium">
+                          {userData.name || userData.email}
+                        </h4>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">
-                            {userData.lastUpdated && format(new Date(userData.lastUpdated), "dd/MM/yyyy", { locale: ptBR })}
+                            {userData.lastUpdated &&
+                              format(
+                                new Date(userData.lastUpdated),
+                                "dd/MM/yyyy",
+                                { locale: ptBR }
+                              )}
                           </span>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-sm mb-2">
                         <div>
-                          <span className="text-muted-foreground">Commits:</span>{' '}
-                          <span className="font-medium">{renderMetricValue(userData?.commits)}</span>
+                          <span className="text-muted-foreground">
+                            Commits:
+                          </span>{" "}
+                          <span className="font-medium">
+                            {renderMetricValue(userData?.commits)}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">PRs:</span>{' '}
-                          <span className="font-medium">{renderMetricValue(userData?.prsCreated)}</span>
+                          <span className="text-muted-foreground">PRs:</span>{" "}
+                          <span className="font-medium">
+                            {renderMetricValue(userData?.prsCreated)}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Reviews:</span>{' '}
-                          <span className="font-medium">{renderMetricValue(userData?.prsReviewed)}</span>
+                          <span className="text-muted-foreground">
+                            Reviews:
+                          </span>{" "}
+                          <span className="font-medium">
+                            {renderMetricValue(userData?.prsReviewed)}
+                          </span>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Adições:</span>{' '}
-                          <span className="font-medium text-green-600">+{renderMetricValue(userData?.additions)}</span>
+                          <span className="text-muted-foreground">
+                            Adições:
+                          </span>{" "}
+                          <span className="font-medium text-green-600">
+                            +{renderMetricValue(userData?.additions)}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Remoções:</span>{' '}
-                          <span className="font-medium text-red-600">-{renderMetricValue(userData?.deletions)}</span>
+                          <span className="text-muted-foreground">
+                            Remoções:
+                          </span>{" "}
+                          <span className="font-medium text-red-600">
+                            -{renderMetricValue(userData?.deletions)}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Mudanças:</span>{' '}
-                          <span className="font-medium">{renderMetricValue(userData?.changedFiles)}</span>
+                          <span className="text-muted-foreground">
+                            Mudanças:
+                          </span>{" "}
+                          <span className="font-medium">
+                            {renderMetricValue(userData?.changedFiles)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -361,7 +476,9 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
         ) : (
           <div className="flex flex-col items-center justify-center p-4 text-center">
             <p className="text-sm text-muted-foreground">
-              {isLoading ? 'Carregando métricas...' : 'Nenhuma métrica disponível'}
+              {isLoading
+                ? "Carregando métricas..."
+                : "Nenhuma métrica disponível"}
             </p>
           </div>
         )}
