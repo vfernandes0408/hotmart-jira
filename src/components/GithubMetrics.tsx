@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   RefreshCw,
@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
+  Loader2,
 } from "lucide-react";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useOpenAI } from '@/hooks/useOpenAI';
+import { OpenAIConfig } from '@/components/OpenAIConfig';
 
 type SortField =
   | "name"
@@ -182,7 +185,7 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     };
 
     return totals;
-  }, []);
+  }, [userQueries]);
 
   const isLoading = queriesLoading || mutation.isPending;
   const isError = queriesError;
@@ -229,6 +232,8 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     });
   }, [userQueries, sortField, sortOrder]);
 
+  const { mutate: generateInsights, data: insightsData, isPending: isGeneratingInsights, error: insightsError } = useOpenAI();
+
   if (!isConfigured("github")) {
     return (
       <Card className="col-span-full xl:col-span-2">
@@ -260,6 +265,15 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
 
   return (
     <Card className="col-span-full xl:col-span-2">
+      <CardHeader>
+        <CardTitle>Métricas do GitHub</CardTitle>
+        <CardDescription>
+          Métricas de contribuição do GitHub para o período selecionado
+        </CardDescription>
+        <div className="mt-2">
+          <OpenAIConfig />
+        </div>
+      </CardHeader>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex flex-col">
           <CardTitle className="text-sm font-medium">
@@ -339,6 +353,80 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
                 </div>
               </div>
             </div>
+
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                <ChevronDown className="h-4 w-4" />
+                Insights de Performance
+              </CollapsibleTrigger>
+
+              <CollapsibleContent className="mt-4 space-y-4">
+                {isGeneratingInsights ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      Gerando insights...
+                    </span>
+                  </div>
+                ) : insightsError ? (
+                  <div className="flex flex-col items-center justify-center p-4 space-y-4">
+                    <p className="text-sm text-destructive">
+                      {insightsError.message}
+                    </p>
+                    <Button
+                      onClick={() => {
+                        const usersWithContributions = sortedUsers.filter(user => 
+                          user.commits > 0 || 
+                          user.prsCreated > 0 || 
+                          user.prsReviewed > 0 || 
+                          user.additions > 0 || 
+                          user.deletions > 0
+                        );
+                        if (usersWithContributions.length > 0) {
+                          generateInsights({ users: usersWithContributions });
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Tentar novamente
+                    </Button>
+                  </div>
+                ) : insightsData ? (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <div className="whitespace-pre-wrap">{insightsData}</div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-4 space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum insight disponível no momento.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        const usersWithContributions = sortedUsers.filter(user => 
+                          user.commits > 0 || 
+                          user.prsCreated > 0 || 
+                          user.prsReviewed > 0 || 
+                          user.additions > 0 || 
+                          user.deletions > 0
+                        );
+                        if (usersWithContributions.length > 0) {
+                          generateInsights({ users: usersWithContributions });
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Gerar insights
+                    </Button>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
 
             <Collapsible>
               <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
@@ -488,3 +576,4 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
 };
 
 export default GithubMetrics;
+ 
