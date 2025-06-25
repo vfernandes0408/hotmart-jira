@@ -88,6 +88,7 @@ const Dashboard = ({
     },
   });
   const [showFilters, setShowFilters] = useState(true);
+  const [isFirstGithubQuery, setIsFirstGithubQuery] = useState(true);
 
   const clearSession = useCallback(() => {
     try {
@@ -250,10 +251,17 @@ const Dashboard = ({
     setFilteredData(cleanData);
     setProjectKey(detectedProjectKey);
     setLastUpdate(new Date());
+    // Reset GitHub query state for new connection
+    setIsFirstGithubQuery(true);
   };
 
   const handleFiltersChange = (newFilters: Filters) => {
     setFilters(newFilters);
+    
+    // Mark as not first query when filters change
+    if (isFirstGithubQuery) {
+      setIsFirstGithubQuery(false);
+    }
 
     // Apply all filters to data
     let filtered = jiraData;
@@ -388,6 +396,8 @@ const Dashboard = ({
     handleFiltersChange(newFilters);
     setFilteredData([...jiraData]);
     setLastUpdate(new Date());
+    // Reset to first query when clearing filters
+    setIsFirstGithubQuery(true);
   };
 
   const handleToggleFilters = () => {
@@ -743,12 +753,40 @@ const Dashboard = ({
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
-                          {(() => {
-                            const emails =
-                              filteredData
+                          <GithubMetrics
+                            data={(() => {
+                              // Para GitHub, precisamos usar os assignees selecionados no filtro, não os dados filtrados
+                              const selectedAssignees = Array.isArray(filters.assignee) 
+                                ? filters.assignee 
+                                : filters.assignee ? [filters.assignee] : [];
+                              
+                              // Se há assignees selecionados, usar seus emails
+                              const filteredEmails = selectedAssignees.length > 0 
+                                ? jiraData
+                                    ?.filter((issue) => selectedAssignees.includes(issue.assignee))
+                                    .filter((issue) => {
+                                      const email = issue.assigneeEmail;
+                                      return email && email.includes("@");
+                                    })
+                                    .map((issue) => issue.assigneeEmail)
+                                    .filter(
+                                      (email, index, self) =>
+                                        self.indexOf(email) === index
+                                    ) || []
+                                : filteredData
+                                    ?.filter((issue) => {
+                                      const email = issue.assigneeEmail;
+                                      return email && email.includes("@");
+                                    })
+                                    .map((issue) => issue.assigneeEmail)
+                                    .filter(
+                                      (email, index, self) =>
+                                        self.indexOf(email) === index
+                                    ) || [];
+                              
+                              const allEmails = jiraData
                                 ?.filter((issue) => {
                                   const email = issue.assigneeEmail;
-
                                   return email && email.includes("@");
                                 })
                                 .map((issue) => issue.assigneeEmail)
@@ -756,27 +794,22 @@ const Dashboard = ({
                                   (email, index, self) =>
                                     self.indexOf(email) === index
                                 ) || [];
-                            return null;
-                          })()}
-                          <GithubMetrics
-                            data={{
-                              emails:
-                                filteredData
-                                  ?.filter((issue) => {
-                                    const email = issue.assigneeEmail;
-
-                                    return email && email.includes("@");
-                                  })
-                                  .map((issue) => issue.assigneeEmail)
-                                  .filter(
-                                    (email, index, self) =>
-                                      self.indexOf(email) === index
-                                  ) || [],
-                            }}
+                              
+                              console.log('=== DEBUG DASHBOARD ===');
+                              console.log('selectedAssignees:', selectedAssignees);
+                              console.log('filteredEmails:', filteredEmails);
+                              console.log('allEmails:', allEmails);
+                              
+                              return {
+                                emails: filteredEmails,
+                                allEmails: allEmails,
+                              };
+                            })()}
                             dateRange={{
                               from: new Date(filters.dateRange.start),
                               to: new Date(filters.dateRange.end),
                             }}
+                            isFirstQuery={isFirstGithubQuery}
                           />
                         </div>
                       </TabsContent>

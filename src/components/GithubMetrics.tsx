@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   RefreshCw,
   Github,
@@ -8,6 +9,9 @@ import {
   ChevronUp,
   ChevronsUpDown,
   Loader2,
+  Plus,
+  X,
+  UserPlus,
 } from "lucide-react";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { toast } from "sonner";
@@ -26,6 +30,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useOpenAI } from '@/hooks/useOpenAI';
 import { OpenAIConfig } from '@/components/OpenAIConfig';
+import { fetchGithubUserDataGraphQL } from '@/utils/github';
 
 type SortField =
   | "name"
@@ -40,48 +45,170 @@ type SortOrder = "asc" | "desc";
 interface GithubMetricsProps {
   data: {
     emails: string[];
+    allEmails?: string[];
   };
   dateRange: {
     from: Date;
     to: Date;
   };
+  isFirstQuery?: boolean;
 }
 
-// Hook personalizado para gerenciar as queries
-const useGithubQueries = (
-  emails: string[],
-  dateRange: { from: Date; to: Date }
-) => {
-  // Ensure emails is an array and filter out invalid values
-  const queries = useMemo(() => {
-    const validEmails = (Array.isArray(emails) ? emails : [])
-      .filter(email => typeof email === 'string' && email.includes('@'))
-      .map((email) => {
-        const username = email.split("@")[0].replace(/\./g, "") + "-hotmart";
-        return { email, username };
-      });
-    return validEmails;
-  }, []);
 
-  const userQueries = queries.map(({ email }) =>
-    useGithubQuery(email, dateRange)
-  );
 
-  return {
-    queries: userQueries,
-    isLoading: userQueries.some((query) => query?.isLoading),
-    isError: userQueries.some((query) => query?.isError),
-    refetch: () => userQueries.forEach((query) => query?.refetch()),
-  };
-};
-
-const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
-  // Ensure emails is always an array
-  const emails = Array.isArray(data?.emails) ? data.emails : [];
+const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQuery = true }) => {
+  // All hooks must be called before any early returns
   const { isConfigured } = useApiKeys();
-
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [activeEmails, setActiveEmails] = useState<string[]>([]);
+  
+  // Memoize as datas para evitar recriações desnecessárias
+  const memoizedDateRange = useMemo(() => {
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    
+    if (!dateRange?.from || !dateRange?.to) {
+      return { from: startOfYear, to: endOfYear };
+    }
+    
+    const fromDate = new Date(dateRange.from);
+    const toDate = new Date(dateRange.to);
+    
+    // Validação de datas
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      console.warn('Datas inválidas fornecidas, usando padrão do ano atual');
+      return { from: startOfYear, to: endOfYear };
+    }
+    
+    return {
+      from: fromDate,
+      to: toDate,
+    };
+  }, [dateRange?.from, dateRange?.to]);
+
+  // Hook para buscar dados em lote
+  const mutation = useGithubBulkData();
+  
+  // Use bulk data approach to avoid dynamic hooks issues
+  const [githubUsers, setGithubUsers] = useState<GithubUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [notFoundUsers, setNotFoundUsers] = useState<string[]>([]);
+  const [manualUsernames, setManualUsernames] = useState<string[]>([]);
+  const [newUsername, setNewUsername] = useState("");
+  
+  const loadGithubData = async () => {
+    if (!activeEmails.length) return;
+    
+    setIsLoadingUsers(true);
+    try {
+      const results = await mutation.mutateAsync({
+        emails: activeEmails,
+        startDate: memoizedDateRange.from,
+        endDate: memoizedDateRange.to,
+      });
+      
+      // Extrai os dados válidos dos resultados
+      console.log('Resultados recebidos:', results);
+      
+      const validUsers = results
+        .filter((result: any) => result.data && !result.error)
+        .map((result: any) => ({
+          ...result.data,
+          email: result.email,
+          comments: 0,
+          reactions: 0,
+          lastUpdated: new Date().toISOString(),
+        }));
+      
+      const failedUsers = results.filter((result: any) => result.error || !result.data);
+      
+      console.log('Usuários válidos processados:', validUsers);
+      console.log('Usuários que falharam:', failedUsers);
+      
+      setGithubUsers(validUsers);
+      setNotFoundUsers(failedUsers.map((u: any) => u.email));
+      
+      if (failedUsers.length > 0) {
+        toast.success(`${validUsers.length} usuários carregados. ${failedUsers.length} não encontrados no GitHub.`);
+      } else {
+        toast.success(`${validUsers.length} usuários carregados com sucesso!`);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast.error('Erro ao carregar dados do GitHub');
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  // Initialize with all emails on first load
+  useEffect(() => {
+    if (isFirstQuery && data?.allEmails && activeEmails.length === 0) {
+      const allEmails = Array.isArray(data.allEmails) ? data.allEmails : [];
+      setActiveEmails(allEmails);
+    }
+  }, [data?.allEmails, isFirstQuery, activeEmails.length]);
+  
+  // Auto-load data when activeEmails is set for the first time
+  useEffect(() => {
+    if (activeEmails.length > 0 && githubUsers.length === 0 && !isLoadingUsers) {
+      loadGithubData();
+    }
+  }, [activeEmails.length, githubUsers.length, isLoadingUsers]);
+
+  const handleApplyFilters = async () => {
+    const filteredEmails = Array.isArray(data?.emails) ? data.emails : [];
+    console.log('=== DEBUG FILTROS ===');
+    console.log('data?.emails recebido:', data?.emails);
+    console.log('filteredEmails processado:', filteredEmails);
+    console.log('Quantidade de emails:', filteredEmails.length);
+    
+    setActiveEmails(filteredEmails);
+    
+    if (filteredEmails.length > 0) {
+      setIsLoadingUsers(true);
+      try {
+        const results = await mutation.mutateAsync({
+          emails: filteredEmails,
+          startDate: memoizedDateRange.from,
+          endDate: memoizedDateRange.to,
+        });
+        
+        // Extrai os dados válidos dos resultados
+        console.log('Emails filtrados enviados:', filteredEmails);
+        console.log('Resultados dos filtros:', results);
+        
+        const validUsers = results
+          .filter((result: any) => result.data && !result.error)
+          .map((result: any) => ({
+            ...result.data,
+            email: result.email,
+            comments: 0,
+            reactions: 0,
+            lastUpdated: new Date().toISOString(),
+          }));
+        
+        const failedUsers = results.filter((result: any) => result.error || !result.data);
+        
+        setGithubUsers(validUsers);
+        setNotFoundUsers(failedUsers.map((u: any) => u.email));
+        
+        if (failedUsers.length > 0) {
+          toast.success(`Filtros aplicados! ${validUsers.length} de ${filteredEmails.length} usuários encontrados no GitHub.`);
+          console.log('Usuários não encontrados:', failedUsers.map(u => u.email));
+        } else {
+          toast.success(`Filtros aplicados! ${validUsers.length} usuários encontrados.`);
+        }
+      } catch (error) {
+        console.error('Erro ao aplicar filtros:', error);
+        toast.error('Erro ao aplicar filtros');
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    }
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -101,43 +228,11 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     );
   };
 
-  // Memoize as datas para evitar recriações desnecessárias
-  const memoizedDateRange = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) {
-      const now = new Date();
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
-      return { from: startOfYear, to: endOfYear };
-    }
-    return {
-      from: new Date(dateRange.from),
-      to: new Date(dateRange.to),
-    };
-  }, [dateRange?.from, dateRange?.to]);
 
-  // Hook para buscar dados em lote
-  const mutation = useGithubBulkData();
 
-  // Usar o hook personalizado para gerenciar as queries
-
-  const {
-    queries: userQueries,
-    isLoading: queriesLoading,
-    isError: queriesError,
-    refetch: refetchQueries,
-  } = useGithubQueries(emails, memoizedDateRange);
-
-  // Calcula métricas totais
+  // Calcula métricas totais baseado nos dados carregados
   const githubData = useMemo(() => {
-    if (!Array.isArray(userQueries)) return null;
-
-    const validUsers = userQueries
-      .filter((query): query is ReturnType<typeof useGithubQuery> & { data: GithubUser } => {
-        return query?.data !== null && !query?.isError;
-      })
-      .map((query) => query.data);
-
-    if (!validUsers || validUsers.length === 0) {
+    if (!githubUsers.length) {
       return {
         commits: 0,
         pullRequests: 0,
@@ -152,32 +247,32 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     }
 
     const totals = {
-      commits: validUsers.reduce((acc, user) => acc + (user?.commits || 0), 0),
-      pullRequests: validUsers.reduce(
+      commits: githubUsers.reduce((acc, user) => acc + (user?.commits || 0), 0),
+      pullRequests: githubUsers.reduce(
         (acc, user) => acc + (user?.prsCreated || 0),
         0
       ),
-      reviews: validUsers.reduce(
+      reviews: githubUsers.reduce(
         (acc, user) => acc + (user?.prsReviewed || 0),
         0
       ),
-      comments: validUsers.reduce(
+      comments: githubUsers.reduce(
         (acc, user) => acc + (user?.comments || 0),
         0
       ),
-      reactions: validUsers.reduce(
+      reactions: githubUsers.reduce(
         (acc, user) => acc + (user?.reactions || 0),
         0
       ),
-      changedFiles: validUsers.reduce(
+      changedFiles: githubUsers.reduce(
         (acc, user) => acc + (user?.changedFiles || 0),
         0
       ),
-      additions: validUsers.reduce(
+      additions: githubUsers.reduce(
         (acc, user) => acc + (user?.additions || 0),
         0
       ),
-      deletions: validUsers.reduce(
+      deletions: githubUsers.reduce(
         (acc, user) => acc + (user?.deletions || 0),
         0
       ),
@@ -185,22 +280,99 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
     };
 
     return totals;
-  }, [userQueries]);
+  }, [githubUsers]);
 
-  const isLoading = queriesLoading || mutation.isPending;
-  const isError = queriesError;
+  const isLoading = isLoadingUsers || mutation.isPending;
+  const isError = false;
 
   const handleRefresh = () => {
-    refetchQueries();
+    loadGithubData();
+  };
+
+  const addManualUsername = () => {
+    if (!newUsername.trim()) return;
+    
+    const username = newUsername.trim();
+    if (username.includes('@') || username.includes(' ')) {
+      toast.error('Por favor, insira apenas o username do GitHub (sem @ ou espaços)');
+      return;
+    }
+    
+    if (manualUsernames.includes(username)) {
+      toast.error('Este username já foi adicionado');
+      return;
+    }
+    
+    setManualUsernames(prev => [...prev, username]);
+    setNewUsername('');
+    toast.success('Username adicionado à lista manual');
+  };
+
+  const removeManualUsername = (username: string) => {
+    setManualUsernames(prev => prev.filter(u => u !== username));
+  };
+
+  const loadManualUsers = async () => {
+    if (!manualUsernames.length) {
+      toast.error('Nenhum username manual para buscar');
+      return;
+    }
+    
+    setIsLoadingUsers(true);
+    try {
+      const results = await Promise.all(
+        manualUsernames.map(async (username) => {
+          try {
+
+            const data = await fetchGithubUserDataGraphQL(username, {
+              from: memoizedDateRange.from,
+              to: memoizedDateRange.to,
+            });
+            return { username, email: `${username}@manual.github`, data };
+          } catch (error) {
+            console.error(`Erro ao buscar dados para ${username}:`, error);
+            return { username, email: `${username}@manual.github`, error };
+          }
+        })
+      );
+      
+      const validUsers = results
+        .filter((result: any) => result.data && !result.error)
+        .map((result: any) => ({
+          ...result.data,
+          email: result.email,
+          comments: 0,
+          reactions: 0,
+          lastUpdated: new Date().toISOString(),
+        }));
+      
+      const failedUsers = results.filter((result: any) => result.error || !result.data);
+      
+      // Adiciona aos usuários existentes em vez de substituir
+      setGithubUsers(prev => {
+        const existingEmails = prev.map(u => u.email);
+        const newUsers = validUsers.filter(u => !existingEmails.includes(u.email));
+        return [...prev, ...newUsers];
+      });
+      
+      setNotFoundUsers(prev => [...prev, ...failedUsers.map((u: any) => u.username)]);
+      
+      toast.success(`${validUsers.length} usuários manuais adicionados!`);
+    } catch (error) {
+      console.error('Erro ao carregar usuários manuais:', error);
+      toast.error('Erro ao carregar usuários manuais');
+    } finally {
+      setIsLoadingUsers(false);
+    }
   };
 
   const handleImport = () => {
-    if (!Array.isArray(emails) || emails.length === 0) {
+    if (!Array.isArray(activeEmails) || activeEmails.length === 0) {
       toast.error("Nenhum email válido para importar");
       return;
     }
     mutation.mutate({
-      emails,
+      emails: activeEmails,
       startDate: memoizedDateRange.from,
       endDate: memoizedDateRange.to,
     });
@@ -213,14 +385,9 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
 
   // Ordena os usuários válidos
   const sortedUsers = useMemo(() => {
-    const validUsers = userQueries
-      .filter((query) => query && query.data !== null && !query.isError)
-      .map((query) => query.data as GithubUser)
-      .filter(Boolean);
+    if (!githubUsers.length) return [];
 
-    if (!validUsers || validUsers.length === 0) return [];
-
-    return [...validUsers].sort((a, b) => {
+    return [...githubUsers].sort((a, b) => {
       const aValue = a[sortField] ?? 0;
       const bValue = b[sortField] ?? 0;
 
@@ -230,9 +397,24 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
         return aValue < bValue ? 1 : -1;
       }
     });
-  }, [userQueries, sortField, sortOrder]);
+  }, [githubUsers, sortField, sortOrder]);
 
   const { mutate: generateInsights, data: insightsData, isPending: isGeneratingInsights, error: insightsError } = useOpenAI();
+
+
+
+  // Early return if data is invalid (after all hooks)
+  if (!data || (!data.emails && !data.allEmails)) {
+    return (
+      <Card className="col-span-full xl:col-span-2">
+        <CardContent>
+          <div className="flex flex-col items-center justify-center p-4 text-center">
+            <p className="text-sm text-muted-foreground">Nenhum dado disponível</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!isConfigured("github")) {
     return (
@@ -266,10 +448,17 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
   return (
     <Card className="col-span-full xl:col-span-2">
       <CardHeader>
-        <CardTitle>Métricas do GitHub</CardTitle>
-        <CardDescription>
-          Métricas de contribuição do GitHub para o período selecionado
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Métricas do GitHub</CardTitle>
+            <CardDescription>
+              Métricas de contribuição do GitHub para o período selecionado
+            </CardDescription>
+          </div>
+          <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+            {activeEmails.length === (data?.allEmails?.length || 0) ? 'Todas as pessoas' : `${activeEmails.length} pessoa(s) selecionada(s)`}
+          </div>
+        </div>
         <div className="mt-2">
           <OpenAIConfig />
         </div>
@@ -293,6 +482,14 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
         <div className="flex space-x-2">
           <Button
             variant="outline"
+            size="sm"
+            onClick={handleApplyFilters}
+            disabled={isLoading}
+          >
+            Aplicar Filtros
+          </Button>
+          <Button
+            variant="outline"
             size="icon"
             onClick={handleRefresh}
             disabled={isLoading || !githubData}
@@ -306,7 +503,7 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
             size="icon"
             onClick={handleImport}
             disabled={
-              isLoading || !Array.isArray(emails) || emails.length === 0
+              isLoading || !Array.isArray(activeEmails) || activeEmails.length === 0
             }
           >
             <Github className="h-4 w-4" />
@@ -558,6 +755,104 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange }) => {
                     </div>
                   );
                 })}
+              </CollapsibleContent>
+            </Collapsible>
+            
+            {notFoundUsers.length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                  <ChevronDown className="h-4 w-4" />
+                  Usuários não encontrados no GitHub ({notFoundUsers.length})
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-4">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-800 mb-2">
+                      Os seguintes usuários não foram encontrados no GitHub:
+                    </p>
+                    <div className="space-y-1">
+                      {notFoundUsers.map((email) => (
+                        <div key={email} className="text-xs text-yellow-700 bg-yellow-100 px-2 py-1 rounded">
+                          {email}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-yellow-600 mt-2">
+                      Isso pode acontecer se o usuário não tiver conta no GitHub ou se o username gerado não corresponder ao username real.
+                    </p>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                <UserPlus className="h-4 w-4" />
+                Adicionar Usuários Manualmente ({manualUsernames.length})
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+                  <p className="text-sm text-blue-800">
+                    Adicione usernames do GitHub que não aparecem nos filtros da aplicação:
+                  </p>
+                  
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="username-github"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && addManualUsername()}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={addManualUsername}
+                      size="sm"
+                      disabled={!newUsername.trim()}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {manualUsernames.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-blue-800">
+                        Usernames adicionados ({manualUsernames.length}):
+                      </p>
+                      <div className="space-y-1">
+                        {manualUsernames.map((username) => (
+                          <div key={username} className="flex items-center justify-between bg-blue-100 px-3 py-2 rounded">
+                            <span className="text-sm text-blue-700">{username}</span>
+                            <Button
+                              onClick={() => removeManualUsername(username)}
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        onClick={loadManualUsers}
+                        disabled={isLoading}
+                        className="w-full"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Carregando...
+                          </>
+                        ) : (
+                          <>
+                            <Github className="h-4 w-4 mr-2" />
+                            Buscar no GitHub
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CollapsibleContent>
             </Collapsible>
           </div>
