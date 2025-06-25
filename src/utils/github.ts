@@ -73,6 +73,10 @@ export const fetchGithubUserDataGraphQL = async (username: string, dateRange: { 
   const formatDate = (date: Date | undefined) => {
     if (!date) return null;
     const d = new Date(date);
+    if (isNaN(d.getTime())) {
+      console.warn('Data inválida fornecida:', date);
+      return null;
+    }
     return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
   };
 
