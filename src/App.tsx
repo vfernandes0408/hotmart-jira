@@ -1,6 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import ErrorBoundary from "./components/ErrorBoundary";
 import IssueTimeline from "./components/IssueTimeline";
@@ -52,14 +52,14 @@ const AppContent = () => {
     <div className="min-h-screen bg-gray-50">
       <ErrorBoundary>
         <Toaster />
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route path="/" element={<Index iaKeys={apiKeys} onIaClick={handleIaClick} onGithubClick={handleGithubClick} />} />
             <Route path="/issue-timeline" element={<IssueTimeline data={[]} />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
 
         <Dialog open={iaModalOpen} onOpenChange={setIaModalOpen}>
           <DialogContent>
