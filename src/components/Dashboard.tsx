@@ -151,17 +151,33 @@ const Dashboard = ({
       setProjectKey(existingSession.projectKey);
       setIsConnected(true);
       startSessionTimer();
-      
+
       // Usar selectedPeople da sessão se disponível
-      if (existingSession.selectedPeople && existingSession.selectedPeople.length > 0) {
+      if (
+        existingSession.selectedPeople &&
+        existingSession.selectedPeople.length > 0
+      ) {
         setSelectedPeople(existingSession.selectedPeople);
       }
       // Caso contrário, extrair assignees do filtro para atualizar selectedPeople
-      else if (existingSession.jiraData && existingSession.jiraData.length > 0) {
-        const uniqueAssignees = [...new Set(existingSession.jiraData.map(item => item.assignee).filter(Boolean))];
+      else if (
+        existingSession.jiraData &&
+        existingSession.jiraData.length > 0
+      ) {
+        const uniqueAssignees = [
+          ...new Set(
+            existingSession.jiraData
+              .map((item) => item.assignee)
+              .filter(Boolean)
+          ),
+        ];
         if (filters.assignee) {
-          const assignees = Array.isArray(filters.assignee) ? filters.assignee : [filters.assignee];
-          setSelectedPeople(assignees.filter(a => uniqueAssignees.includes(a)));
+          const assignees = Array.isArray(filters.assignee)
+            ? filters.assignee
+            : [filters.assignee];
+          setSelectedPeople(
+            assignees.filter((a) => uniqueAssignees.includes(a))
+          );
         }
       }
     }
@@ -300,11 +316,11 @@ const Dashboard = ({
 
     // Atualizar selectedPeople quando o filtro de assignee mudar
     if (newFilters.assignee !== filters.assignee) {
-      const assignees = Array.isArray(newFilters.assignee) 
-        ? newFilters.assignee 
-        : newFilters.assignee 
-          ? [newFilters.assignee] 
-          : [];
+      const assignees = Array.isArray(newFilters.assignee)
+        ? newFilters.assignee
+        : newFilters.assignee
+        ? [newFilters.assignee]
+        : [];
       setSelectedPeople(assignees);
       // Salvar no cache local
       localStorage.setItem(SELECTED_PEOPLE_KEY, JSON.stringify(assignees));
@@ -773,11 +789,14 @@ const Dashboard = ({
                             onPeopleChange={(people) => {
                               setSelectedPeople(people);
                               // Salvar no cache local
-                              localStorage.setItem(SELECTED_PEOPLE_KEY, JSON.stringify(people));
+                              localStorage.setItem(
+                                SELECTED_PEOPLE_KEY,
+                                JSON.stringify(people)
+                              );
                               // Atualizar filtros quando as pessoas são selecionadas
                               const newFilters = {
                                 ...filters,
-                                assignee: people.length > 0 ? people : ""
+                                assignee: people.length > 0 ? people : "",
                               };
                               handleFiltersChange(newFilters);
                             }}
@@ -841,14 +860,6 @@ const Dashboard = ({
                                     (email, index, self) =>
                                       self.indexOf(email) === index
                                   ) || [];
-
-                              console.log("=== DEBUG DASHBOARD ===");
-                              console.log(
-                                "selectedAssignees:",
-                                selectedAssignees
-                              );
-                              console.log("filteredEmails:", filteredEmails);
-                              console.log("allEmails:", allEmails);
 
                               return {
                                 emails: filteredEmails,

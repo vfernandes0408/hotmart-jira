@@ -71,19 +71,15 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({
   const openAIMutation = useOpenAI();
 
   // Extrair todas as labels únicas dos dados que começam com SCH
-  const availableLabels = useMemo(() => {
-    const labelSet = new Set<string>();
-    data.forEach((issue) => {
-      if (issue.labels && Array.isArray(issue.labels)) {
-        issue.labels.forEach((label) => {
-          if (label && label.startsWith(credentials.projectKey)) {
-            labelSet.add(label);
-          }
-        });
-      }
-    });
-    return Array.from(labelSet).sort((a, b) => b.localeCompare(a));
-  }, [data]);
+  const availableLabels = [
+    ...new Set(
+      data.flatMap((item) =>
+        (item.labels || []).filter((label) =>
+          label.startsWith(credentials.projectKey)
+        )
+      )
+    ),
+  ].sort((a, b) => b.localeCompare(a));
 
   // Função para alternar seleção de labels
   const handleLabelToggle = (label: string, side: 1 | 2) => {

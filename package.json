@@ -13,8 +13,6 @@
     "electron-live": "concurrently -k \"npm run dev\" \"electron .\"",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
-    "build-mac": "./build-mac.sh",
-    "build-mac-dmg": "./build-mac-dmg.sh",
     "dmg": "npm run build && node build-dmg.js",
     "make-dmg": "./make-dmg.sh"
   },

@@ -25,7 +25,6 @@ const callOpenAI = async (params: { prompt: string; apiKey: string }): Promise<s
   const cacheKey = params.prompt;
   const cachedResponse = requestCache.get(cacheKey);
   if (cachedResponse && Date.now() - cachedResponse.timestamp < CACHE_DURATION) {
-    console.log('Usando resposta em cache');
     return cachedResponse.data;
   }
 

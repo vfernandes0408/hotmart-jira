@@ -110,8 +110,6 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
         endDate: memoizedDateRange.to,
       });
       
-      // Extrai os dados válidos dos resultados
-      console.log('Resultados recebidos:', results);
       
       const validUsers = results
         .filter((result: any) => result.data && !result.error)
@@ -125,9 +123,7 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
       
       const failedUsers = results.filter((result: any) => result.error || !result.data);
       
-      console.log('Usuários válidos processados:', validUsers);
-      console.log('Usuários que falharam:', failedUsers);
-      
+
       setGithubUsers(validUsers);
       setNotFoundUsers(failedUsers.map((u: any) => u.email));
       
@@ -161,10 +157,6 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
 
   const handleApplyFilters = async () => {
     const filteredEmails = Array.isArray(data?.emails) ? data.emails : [];
-    console.log('=== DEBUG FILTROS ===');
-    console.log('data?.emails recebido:', data?.emails);
-    console.log('filteredEmails processado:', filteredEmails);
-    console.log('Quantidade de emails:', filteredEmails.length);
     
     setActiveEmails(filteredEmails);
     
@@ -177,9 +169,6 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
           endDate: memoizedDateRange.to,
         });
         
-        // Extrai os dados válidos dos resultados
-        console.log('Emails filtrados enviados:', filteredEmails);
-        console.log('Resultados dos filtros:', results);
         
         const validUsers = results
           .filter((result: any) => result.data && !result.error)
@@ -198,7 +187,6 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
         
         if (failedUsers.length > 0) {
           toast.success(`Filtros aplicados! ${validUsers.length} de ${filteredEmails.length} usuários encontrados no GitHub.`);
-          console.log('Usuários não encontrados:', failedUsers.map(u => u.email));
         } else {
           toast.success(`Filtros aplicados! ${validUsers.length} usuários encontrados.`);
         }

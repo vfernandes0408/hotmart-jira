@@ -34,10 +34,6 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
   data,
   filters,
   onFiltersChange,
-  projectKey,
-  onRefresh,
-  showFilters,
-  onToggleFilters,
   selectedPeople = [],
 }) => {
   const [issueTypeOpen, setIssueTypeOpen] = useState(true);
@@ -82,14 +78,6 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
     ? 1
     : 0;
 
-  const handleFilterChange = (key: string, value: string) => {
-    const newFilters = {
-      ...filters,
-      [key]: value === "all" ? "" : value,
-    };
-    onFiltersChange(newFilters);
-  };
-
   const handleIssueTypeChange = (type: string, checked: boolean) => {
     const currentTypes = Array.isArray(filters.issueType)
       ? filters.issueType
@@ -124,17 +112,6 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
     const newFilters = {
       ...filters,
       assignee: newAssignees.length === 0 ? "" : newAssignees,
-    };
-    onFiltersChange(newFilters);
-  };
-
-  const handleDateRangeChange = (key: string, value: string) => {
-    const newFilters = {
-      ...filters,
-      dateRange: {
-        ...filters.dateRange,
-        [key]: value,
-      },
     };
     onFiltersChange(newFilters);
   };
@@ -176,26 +153,6 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
     };
     onFiltersChange(newFilters);
   };
-
-  const clearFilters = () => {
-    onFiltersChange({
-      issueType: "",
-      status: "",
-      assignee: "",
-      labels: "",
-      dateRange: { start: "", end: "" },
-    });
-  };
-
-  const activeFiltersCount = Object.entries(filters).filter(([key, value]) => {
-    if (key === "issueType" || key === "assignee") {
-      return Array.isArray(value) ? value.length > 0 : !!value;
-    }
-    return (
-      value &&
-      (typeof value === "string" ? value : Object.values(value).some((v) => v))
-    );
-  }).length;
 
   return (
     <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm h-full flex flex-col">
@@ -409,7 +366,10 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
               <CollapsibleContent className="space-y-1 mt-2">
                 <div className="max-h-[200px] overflow-y-auto pr-2">
                   {/* Mostrar apenas as pessoas selecionadas ou todas se nenhuma estiver selecionada */}
-                  {(selectedPeople.length > 0 ? selectedPeople : uniqueAssignees).map((assignee) => {
+                  {(selectedPeople.length > 0
+                    ? selectedPeople
+                    : uniqueAssignees
+                  ).map((assignee) => {
                     const currentAssignees = Array.isArray(filters.assignee)
                       ? filters.assignee
                       : filters.assignee
