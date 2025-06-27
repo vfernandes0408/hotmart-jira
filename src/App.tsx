@@ -3,7 +3,6 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import ErrorBoundary from "./components/ErrorBoundary";
-import IssueTimeline from "./components/IssueTimeline";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { useState } from "react";
@@ -55,7 +54,6 @@ const AppContent = () => {
         <HashRouter>
           <Routes>
             <Route path="/" element={<Index iaKeys={apiKeys} onIaClick={handleIaClick} onGithubClick={handleGithubClick} />} />
-            <Route path="/issue-timeline" element={<IssueTimeline data={[]} />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

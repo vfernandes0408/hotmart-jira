@@ -29,8 +29,9 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useOpenAI } from '@/hooks/useOpenAI';
-import { OpenAIConfig } from '@/components/OpenAIConfig';
+
 import { fetchGithubUserDataGraphQL } from '@/utils/github';
+import { OpenAIConfig } from "./OpenAIConfig";
 
 type SortField =
   | "name"
@@ -459,9 +460,7 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
             {activeEmails.length === (data?.allEmails?.length || 0) ? 'Todas as pessoas' : `${activeEmails.length} pessoa(s) selecionada(s)`}
           </div>
         </div>
-        <div className="mt-2">
-          <OpenAIConfig />
-        </div>
+
       </CardHeader>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex flex-col">

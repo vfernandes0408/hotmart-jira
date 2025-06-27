@@ -1,13 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -34,6 +27,7 @@ import { JiraIssue } from "@/types/jira";
 import { useOpenAI } from "@/hooks/useOpenAI";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useJiraCredentials } from "@/hooks/useJiraCredentials";
 
 interface LabelComparisonProps {
   data: JiraIssue[];
@@ -57,26 +51,32 @@ interface ComparisonData {
   };
 }
 
-const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) => {
+const LabelComparison: React.FC<LabelComparisonProps> = ({
+  data,
+  iaKeys = {},
+}) => {
   const [selectedLabels1, setSelectedLabels1] = useState<string[]>([]);
   const [selectedLabels2, setSelectedLabels2] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
-  const [selectedAiService, setSelectedAiService] = useState<"openai" | null>(null);
+  const [selectedAiService, setSelectedAiService] = useState<"openai" | null>(
+    null
+  );
   const [showInsightsPanel, setShowInsightsPanel] = useState(false);
   const [additionalContext, setAdditionalContext] = useState<string>("");
   const [showAiSelector, setShowAiSelector] = useState(false);
+  const { credentials } = useJiraCredentials();
 
   const queryClient = useQueryClient();
   const openAIMutation = useOpenAI();
 
-  // Extrair todas as labels únicas dos dados
+  // Extrair todas as labels únicas dos dados que começam com SCH
   const availableLabels = useMemo(() => {
     const labelSet = new Set<string>();
     data.forEach((issue) => {
       if (issue.labels && Array.isArray(issue.labels)) {
         issue.labels.forEach((label) => {
-          if (label) {
+          if (label && label.startsWith(credentials.projectKey)) {
             labelSet.add(label);
           }
         });
@@ -105,7 +105,8 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) 
 
   // Calcular dados de comparação
   const comparisonData = useMemo(() => {
-    if (selectedLabels1.length === 0 || selectedLabels2.length === 0) return null;
+    if (selectedLabels1.length === 0 || selectedLabels2.length === 0)
+      return null;
     const label1Data = data.filter(
       (issue) =>
         issue.labels &&
@@ -188,21 +189,27 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) 
 
   // Verificar serviços de IA disponíveis
   const availableAiServices = useMemo(() => {
-    const services: Array<{ key: "openai"; name: string; configured: boolean }> = [
-      { key: "openai", name: "OpenAI", configured: !!iaKeys["openai"] }
-    ];
-    return services.filter(service => service.configured);
+    const services: Array<{
+      key: "openai";
+      name: string;
+      configured: boolean;
+    }> = [{ key: "openai", name: "OpenAI", configured: !!iaKeys["openai"] }];
+    return services.filter((service) => service.configured);
   }, [iaKeys]);
 
   // Abrir seletor de IA
   const handleAiClick = () => {
     if (!comparisonData) {
-      toast.error("Selecione pelo menos uma label em cada coluna para comparar");
+      toast.error(
+        "Selecione pelo menos uma label em cada coluna para comparar"
+      );
       return;
     }
-    
+
     if (availableAiServices.length === 0) {
-      setAnalysisResult("❌ **Nenhum serviço de IA configurado**\n\nPara usar a funcionalidade de IA:\n1. Configure a chave de API da OpenAI no header");
+      setAnalysisResult(
+        "❌ **Nenhum serviço de IA configurado**\n\nPara usar a funcionalidade de IA:\n1. Configure a chave de API da OpenAI no header"
+      );
       setShowInsightsPanel(true);
       return;
     }
@@ -219,12 +226,16 @@ const LabelComparison: React.FC<LabelComparisonProps> = ({ data, iaKeys = {} }) 
 
     return `Analise os seguintes dados de comparação entre labels do Jira:
 
-Sprint 1: ${selectedLabels1.join(", ")} (${comparisonData.label1Stats.count} issues)
+Sprint 1: ${selectedLabels1.join(", ")} (${
+      comparisonData.label1Stats.count
+    } issues)
 - Cycle Time Médio: ${comparisonData.label1Stats.avgCycleTime.toFixed(1)} dias
 - Story Points Médio: ${comparisonData.label1Stats.avgStoryPoints.toFixed(1)}
 - Taxa de Conclusão: ${comparisonData.label1Stats.completionRate.toFixed(1)}%
 
-Sprint 2: ${selectedLabels2.join(", ")} (${comparisonData.label2Stats.count} issues)
+Sprint 2: ${selectedLabels2.join(", ")} (${
+      comparisonData.label2Stats.count
+    } issues)
 - Cycle Time Médio: ${comparisonData.label2Stats.avgCycleTime.toFixed(1)} dias
 - Story Points Médio: ${comparisonData.label2Stats.avgStoryPoints.toFixed(1)}
 - Taxa de Conclusão: ${comparisonData.label2Stats.completionRate.toFixed(1)}%
@@ -238,7 +249,9 @@ Por favor, forneça insights sobre:
 
   const handleAnalyze = async () => {
     if (!selectedLabels1.length || !selectedLabels2.length) {
-      toast.error("Selecione pelo menos uma label em cada coluna para comparar");
+      toast.error(
+        "Selecione pelo menos uma label em cada coluna para comparar"
+      );
       return;
     }
 
@@ -253,13 +266,13 @@ Por favor, forneça insights sobre:
 
       let result = "";
       if (selectedAiService === "openai") {
-        const cachedData = queryClient.getQueryData(['openai', prompt]);
+        const cachedData = queryClient.getQueryData(["openai", prompt]);
         if (cachedData) {
           result = cachedData as string;
         } else {
           const response = await openAIMutation.mutateAsync({
             prompt,
-            apiKey: iaKeys["openai"]
+            apiKey: iaKeys["openai"],
           });
           result = `🤖 **Análise com OpenAI**\n\n${response}`;
         }
@@ -294,8 +307,7 @@ Por favor, forneça insights sobre:
                   variant="outline"
                   className="bg-purple-50 text-purple-700 border-purple-200"
                 >
-                  Apenas issues e labels (
-                  {availableLabels.length} labels)
+                  Apenas issues e labels ({availableLabels.length} labels)
                 </Badge>
                 {comparisonData && iaKeys["openai"] && (
                   <Button
@@ -340,7 +352,10 @@ Por favor, forneça insights sobre:
                           className="accent-purple-600 h-4 w-4"
                           disabled={selectedLabels2.includes(label)}
                         />
-                        <label htmlFor={`label1-${label}`} className="text-xs cursor-pointer">
+                        <label
+                          htmlFor={`label1-${label}`}
+                          className="text-xs cursor-pointer"
+                        >
                           {label}
                         </label>
                       </div>
@@ -363,7 +378,10 @@ Por favor, forneça insights sobre:
                           className="accent-blue-600 h-4 w-4"
                           disabled={selectedLabels1.includes(label)}
                         />
-                        <label htmlFor={`label2-${label}`} className="text-xs cursor-pointer">
+                        <label
+                          htmlFor={`label2-${label}`}
+                          className="text-xs cursor-pointer"
+                        >
                           {label}
                         </label>
                       </div>
@@ -383,7 +401,9 @@ Por favor, forneça insights sobre:
                     setSelectedLabels2(temp);
                     setAnalysisResult(null);
                   }}
-                  disabled={selectedLabels1.length === 0 || selectedLabels2.length === 0}
+                  disabled={
+                    selectedLabels1.length === 0 || selectedLabels2.length === 0
+                  }
                   className="flex items-center gap-2 px-4 py-2 transition-all duration-200 hover:bg-purple-50 hover:border-purple-300 disabled:opacity-50"
                   title="Inverter comparação"
                 >
@@ -434,13 +454,19 @@ Por favor, forneça insights sobre:
 
             {/* Gráfico Comparativo */}
             {chartData.length > 0 && (
-              <div className="flex flex-col flex-1 mb-8" style={{ height: 'calc(100vh - 40rem)' }}>
+              <div
+                className="flex flex-col flex-1 mb-8"
+                style={{ height: "calc(100vh - 40rem)" }}
+              >
                 <h4 className="text-lg font-semibold mb-4">
                   Comparação Visual
                 </h4>
                 <div className="flex-1 min-h-[400px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                    <BarChart
+                      data={chartData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                       <XAxis
                         dataKey="metric"
@@ -451,16 +477,24 @@ Por favor, forneça insights sobre:
                         interval={0}
                       />
                       <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          backgroundColor: "white",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                         }}
                       />
-                      <Bar dataKey={selectedLabels1.join(", ")} fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey={selectedLabels2.join(", ")} fill="#10B981" radius={[4, 4, 0, 0]} />
+                      <Bar
+                        dataKey={selectedLabels1.join(", ")}
+                        fill="#3B82F6"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey={selectedLabels2.join(", ")}
+                        fill="#10B981"
+                        radius={[4, 4, 0, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  BarChart3,
-  Filter,
   Activity,
   LogOut,
   RefreshCw,
@@ -13,33 +10,33 @@ import {
   Loader2,
   Github,
   Sparkles,
-  Calendar,
   X,
+  Users,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import JiraConnector from "./JiraConnector";
-import CycleTimeScatterplot from "./CycleTimeScatterplot";
-import MetricsCards from "./MetricsCards";
 import FiltersPanel from "./FiltersPanel";
 import TrendChart from "./TrendChart";
-import PerformanceChart from "./PerformanceChart";
 import IssueTimeline from "./IssueTimeline";
 import LabelComparison from "./LabelComparison";
 import TicketList from "./TicketList";
 import AssigneeComparison from "./AssigneeComparison";
 import GithubMetrics from "./GithubMetrics";
+import PeopleSelector from "./PeopleSelector";
 import { JiraIssue, Filters } from "@/types/jira";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { cn } from "@/lib/utils";
 
 const SESSION_KEY = "jira_dashboard_session";
 const SESSION_DURATION = 10 * 60 * 1000; // 10 minutos em millisegundos
+const SELECTED_PEOPLE_KEY = "jira_selected_people";
 
 interface SessionData {
   jiraData: JiraIssue[];
   projectKey: string;
   timestamp: number;
+  selectedPeople?: string[];
 }
 
 interface DashboardProps {
@@ -86,6 +83,14 @@ const Dashboard = ({
       start: getFirstDayOfCurrentMonth(),
       end: getCurrentDate(),
     },
+  });
+  const [selectedPeople, setSelectedPeople] = useState<string[]>(() => {
+    try {
+      const savedPeople = localStorage.getItem(SELECTED_PEOPLE_KEY);
+      return savedPeople ? JSON.parse(savedPeople) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [showFilters, setShowFilters] = useState(true);
   const [isFirstGithubQuery, setIsFirstGithubQuery] = useState(true);
@@ -146,6 +151,19 @@ const Dashboard = ({
       setProjectKey(existingSession.projectKey);
       setIsConnected(true);
       startSessionTimer();
+      
+      // Usar selectedPeople da sessão se disponível
+      if (existingSession.selectedPeople && existingSession.selectedPeople.length > 0) {
+        setSelectedPeople(existingSession.selectedPeople);
+      }
+      // Caso contrário, extrair assignees do filtro para atualizar selectedPeople
+      else if (existingSession.jiraData && existingSession.jiraData.length > 0) {
+        const uniqueAssignees = [...new Set(existingSession.jiraData.map(item => item.assignee).filter(Boolean))];
+        if (filters.assignee) {
+          const assignees = Array.isArray(filters.assignee) ? filters.assignee : [filters.assignee];
+          setSelectedPeople(assignees.filter(a => uniqueAssignees.includes(a)));
+        }
+      }
     }
 
     // Clean up any potential external data interference
@@ -220,6 +238,28 @@ const Dashboard = ({
     }
   };
 
+  // Função para salvar a sessão atual no localStorage
+  const saveSession = useCallback(() => {
+    try {
+      const sessionData: SessionData = {
+        jiraData,
+        projectKey,
+        timestamp: Date.now(),
+        selectedPeople,
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    } catch (error) {
+      console.error("Erro ao salvar sessão:", error);
+    }
+  }, [jiraData, projectKey, selectedPeople]);
+
+  // Salvar sessão quando os dados mudam
+  useEffect(() => {
+    if (isConnected && jiraData.length > 0) {
+      saveSession();
+    }
+  }, [isConnected, jiraData, projectKey, selectedPeople, saveSession]);
+
   const handleJiraConnect = (
     data: JiraIssue[],
     connectedProjectKey?: string
@@ -257,7 +297,19 @@ const Dashboard = ({
 
   const handleFiltersChange = (newFilters: Filters) => {
     setFilters(newFilters);
-    
+
+    // Atualizar selectedPeople quando o filtro de assignee mudar
+    if (newFilters.assignee !== filters.assignee) {
+      const assignees = Array.isArray(newFilters.assignee) 
+        ? newFilters.assignee 
+        : newFilters.assignee 
+          ? [newFilters.assignee] 
+          : [];
+      setSelectedPeople(assignees);
+      // Salvar no cache local
+      localStorage.setItem(SELECTED_PEOPLE_KEY, JSON.stringify(assignees));
+    }
+
     // Mark as not first query when filters change
     if (isFirstGithubQuery) {
       setIsFirstGithubQuery(false);
@@ -393,6 +445,9 @@ const Dashboard = ({
       },
     };
     setFilters(newFilters);
+    setSelectedPeople([]);
+    // Limpar do cache local
+    localStorage.removeItem(SELECTED_PEOPLE_KEY);
     handleFiltersChange(newFilters);
     setFilteredData([...jiraData]);
     setLastUpdate(new Date());
@@ -515,43 +570,43 @@ const Dashboard = ({
                       </>
                     )}
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onIaClick("openai")}
+                    className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
+                      iaKeys["openai"]
+                        ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:from-blue-600 hover:to-blue-700"
+                        : "hover:bg-blue-50 hover:text-blue-700"
+                    }`}
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    {iaKeys["openai"] ? "OpenAI" : "OpenAI"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onGithubClick()}
+                    className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
+                      isConfigured("github")
+                        ? "bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-lg hover:from-gray-600 hover:to-gray-700"
+                        : "hover:bg-gray-50 hover:text-gray-700"
+                    }`}
+                  >
+                    <Github className="w-3 h-3" />
+                    {isConfigured("github") ? "GitHub" : "GitHub"}
+                  </Button>
+                  <Button
+                    onClick={handleLogout}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg hover:from-red-600 hover:to-red-700"
+                  >
+                    <LogOut className="w-3 h-3" />
+                    <span className="hidden sm:inline">Sair</span>
+                  </Button>
                 </>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onIaClick("openai")}
-                className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
-                  iaKeys["openai"]
-                    ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:from-blue-600 hover:to-blue-700"
-                    : "hover:bg-blue-50 hover:text-blue-700"
-                }`}
-              >
-                <Sparkles className="w-3 h-3" />
-                {iaKeys["openai"] ? "OpenAI" : "OpenAI"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onGithubClick()}
-                className={`flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 ${
-                  isConfigured("github")
-                    ? "bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-lg hover:from-gray-600 hover:to-gray-700"
-                    : "hover:bg-gray-50 hover:text-gray-700"
-                }`}
-              >
-                <Github className="w-3 h-3" />
-                {isConfigured("github") ? "GitHub" : "GitHub"}
-              </Button>
-              <Button
-                onClick={handleLogout}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 text-xs px-2 rounded-lg transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg hover:from-red-600 hover:to-red-700"
-              >
-                <LogOut className="w-3 h-3" />
-                <span className="hidden sm:inline">Sair</span>
-              </Button>
             </div>
           </div>
         </div>
@@ -568,11 +623,6 @@ const Dashboard = ({
             </div>
           ) : (
             <div className="h-full flex flex-col gap-2 lg:gap-4">
-              {/* Metrics Cards - Responsive */}
-              <div className="flex-shrink-0">
-                {showMetrics && <MetricsCards data={filteredData} />}
-              </div>
-
               {/* Main Dashboard Content - Responsive flex layout */}
               <div className="flex-1 flex gap-3 min-h-0 overflow-hidden">
                 {/* Filters Panel - Collapsible sidebar */}
@@ -588,6 +638,7 @@ const Dashboard = ({
                     onFiltersChange={handleFiltersChange}
                     showFilters={showFilters}
                     onToggleFilters={handleToggleFilters}
+                    selectedPeople={selectedPeople}
                   />
                 </div>
 
@@ -595,28 +646,16 @@ const Dashboard = ({
                 <div className="flex-1 flex flex-col min-w-0">
                   {/* Tabs */}
                   <Tabs
-                    defaultValue="scatterplot"
+                    defaultValue="trends"
                     className="flex-1 flex flex-col min-h-0"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <TabsList className="h-9 lg:h-10">
                         <TabsTrigger
-                          value="scatterplot"
-                          className="text-xs lg:text-sm"
-                        >
-                          Cycle Time
-                        </TabsTrigger>
-                        <TabsTrigger
                           value="trends"
                           className="text-xs lg:text-sm"
                         >
                           Tendências
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="performance"
-                          className="text-xs lg:text-sm"
-                        >
-                          Performance
                         </TabsTrigger>
                         <TabsTrigger
                           value="timeline"
@@ -628,7 +667,7 @@ const Dashboard = ({
                           value="comparison"
                           className="text-xs lg:text-sm"
                         >
-                          Labels
+                          Sprint
                         </TabsTrigger>
                         <TabsTrigger
                           value="assignee-comparison"
@@ -637,7 +676,14 @@ const Dashboard = ({
                           Assignees
                         </TabsTrigger>
                         <TabsTrigger
-                          value="github-metrics"
+                          value="people"
+                          className="text-xs lg:text-sm"
+                        >
+                          <Users className="w-3 h-3 mr-1" />
+                          Pessoas
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="github"
                           className="text-xs lg:text-sm"
                         >
                           GitHub
@@ -646,24 +692,11 @@ const Dashboard = ({
                           value="tickets"
                           className="text-xs lg:text-sm"
                         >
-                          Tickets
+                          Cards
                         </TabsTrigger>
                       </TabsList>
 
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleToggleMetrics}
-                          className={cn(
-                            "text-xs lg:text-sm",
-                            !showMetrics && "opacity-60"
-                          )}
-                        >
-                          <Activity className="w-4 h-4 mr-2" />
-                          Métricas
-                        </Button>
-
                         <Button
                           variant="outline"
                           size="sm"
@@ -690,31 +723,12 @@ const Dashboard = ({
 
                     {/* Chart Content */}
                     <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-lg border border-zinc-200/50 shadow-sm overflow-hidden">
-                      <TabsContent value="scatterplot" className="h-full m-0">
-                        <CycleTimeScatterplot
-                          data={filteredData}
-                          filters={filters}
-                        />
-                      </TabsContent>
-
                       <TabsContent
                         value="trends"
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <TrendChart data={filteredData} filters={filters} />
-                        </div>
-                      </TabsContent>
-
-                      <TabsContent
-                        value="performance"
-                        className="h-full m-0 p-3 overflow-auto"
-                      >
-                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
-                          <PerformanceChart
-                            data={filteredData}
-                            filters={filters}
-                          />
                         </div>
                       </TabsContent>
 
@@ -749,57 +763,93 @@ const Dashboard = ({
                       </TabsContent>
 
                       <TabsContent
-                        value="github-metrics"
+                        value="people"
+                        className="h-full m-0 p-3 overflow-auto"
+                      >
+                        <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
+                          <PeopleSelector
+                            data={jiraData}
+                            selectedPeople={selectedPeople}
+                            onPeopleChange={(people) => {
+                              setSelectedPeople(people);
+                              // Salvar no cache local
+                              localStorage.setItem(SELECTED_PEOPLE_KEY, JSON.stringify(people));
+                              // Atualizar filtros quando as pessoas são selecionadas
+                              const newFilters = {
+                                ...filters,
+                                assignee: people.length > 0 ? people : ""
+                              };
+                              handleFiltersChange(newFilters);
+                            }}
+                          />
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent
+                        value="github"
                         className="h-full m-0 p-3 overflow-auto"
                       >
                         <div className="h-[calc(100vh-22rem)] min-h-[600px] w-full">
                           <GithubMetrics
                             data={(() => {
                               // Para GitHub, precisamos usar os assignees selecionados no filtro, não os dados filtrados
-                              const selectedAssignees = Array.isArray(filters.assignee) 
-                                ? filters.assignee 
-                                : filters.assignee ? [filters.assignee] : [];
-                              
+                              const selectedAssignees = Array.isArray(
+                                filters.assignee
+                              )
+                                ? filters.assignee
+                                : filters.assignee
+                                ? [filters.assignee]
+                                : [];
+
                               // Se há assignees selecionados, usar seus emails
-                              const filteredEmails = selectedAssignees.length > 0 
-                                ? jiraData
-                                    ?.filter((issue) => selectedAssignees.includes(issue.assignee))
-                                    .filter((issue) => {
-                                      const email = issue.assigneeEmail;
-                                      return email && email.includes("@");
-                                    })
-                                    .map((issue) => issue.assigneeEmail)
-                                    .filter(
-                                      (email, index, self) =>
-                                        self.indexOf(email) === index
-                                    ) || []
-                                : filteredData
-                                    ?.filter((issue) => {
-                                      const email = issue.assigneeEmail;
-                                      return email && email.includes("@");
-                                    })
-                                    .map((issue) => issue.assigneeEmail)
-                                    .filter(
-                                      (email, index, self) =>
-                                        self.indexOf(email) === index
-                                    ) || [];
-                              
-                              const allEmails = jiraData
-                                ?.filter((issue) => {
-                                  const email = issue.assigneeEmail;
-                                  return email && email.includes("@");
-                                })
-                                .map((issue) => issue.assigneeEmail)
-                                .filter(
-                                  (email, index, self) =>
-                                    self.indexOf(email) === index
-                                ) || [];
-                              
-                              console.log('=== DEBUG DASHBOARD ===');
-                              console.log('selectedAssignees:', selectedAssignees);
-                              console.log('filteredEmails:', filteredEmails);
-                              console.log('allEmails:', allEmails);
-                              
+                              const filteredEmails =
+                                selectedAssignees.length > 0
+                                  ? jiraData
+                                      ?.filter((issue) =>
+                                        selectedAssignees.includes(
+                                          issue.assignee
+                                        )
+                                      )
+                                      .filter((issue) => {
+                                        const email = issue.assigneeEmail;
+                                        return email && email.includes("@");
+                                      })
+                                      .map((issue) => issue.assigneeEmail)
+                                      .filter(
+                                        (email, index, self) =>
+                                          self.indexOf(email) === index
+                                      ) || []
+                                  : filteredData
+                                      ?.filter((issue) => {
+                                        const email = issue.assigneeEmail;
+                                        return email && email.includes("@");
+                                      })
+                                      .map((issue) => issue.assigneeEmail)
+                                      .filter(
+                                        (email, index, self) =>
+                                          self.indexOf(email) === index
+                                      ) || [];
+
+                              const allEmails =
+                                jiraData
+                                  ?.filter((issue) => {
+                                    const email = issue.assigneeEmail;
+                                    return email && email.includes("@");
+                                  })
+                                  .map((issue) => issue.assigneeEmail)
+                                  .filter(
+                                    (email, index, self) =>
+                                      self.indexOf(email) === index
+                                  ) || [];
+
+                              console.log("=== DEBUG DASHBOARD ===");
+                              console.log(
+                                "selectedAssignees:",
+                                selectedAssignees
+                              );
+                              console.log("filteredEmails:", filteredEmails);
+                              console.log("allEmails:", allEmails);
+
                               return {
                                 emails: filteredEmails,
                                 allEmails: allEmails,
