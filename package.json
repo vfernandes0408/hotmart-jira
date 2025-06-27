@@ -2,11 +2,21 @@
   "name": "hotmart-jira",
   "private": true,
   "version": "1.0.0",
+  "main": "main.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron-dev": "./start-electron-dev.sh",
+    "electron-live": "concurrently -k \"npm run dev\" \"electron .\"",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "build-mac": "./build-mac.sh",
+    "build-mac-dmg": "./build-mac-dmg.sh",
+    "dmg": "npm run build && node build-dmg.js",
+    "make-dmg": "./make-dmg.sh"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.0",
@@ -55,6 +65,53 @@
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7"
   },
+  "build": {
+    "appId": "com.hotmart.jira",
+    "productName": "Hotmart Jira Analytics",
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js"
+    ],
+    "directories": {
+      "buildResources": "assets",
+      "output": "release"
+    },
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"],
+      "icon": "assets/icon.png"
+    },
+    "dmg": {
+      "icon": "assets/icon.png",
+      "iconSize": 100,
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "assets/icon.png"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "assets/icon.png"
+    }
+  },
   "devDependencies": {
     "@types/axios": "^0.9.36",
     "@types/node": "^20.11.24",
@@ -64,6 +121,10 @@
     "@typescript-eslint/parser": "^7.0.2",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.18",
+    "concurrently": "^8.2.2",
+    "electron": "^37.1.0",
+    "wait-on": "^7.2.0",
+    "electron-builder": "^24.9.1",
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",

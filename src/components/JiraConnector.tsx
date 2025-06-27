@@ -4,13 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertCircle,
-  Key,
-  Server,
-  User,
-  CheckCircle2,
-} from "lucide-react";
+import { AlertCircle, Key, Server, User, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { JiraIssue } from "@/types/jira";
 import { useJiraData } from "@/hooks/useJiraData";
@@ -26,12 +20,28 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
   const { data: jiraData, refetch } = useJiraData({
     email: credentials.email,
     apiToken: credentials.apiToken,
-    projectKey: credentials.projectKey
+    projectKey: credentials.projectKey,
   });
+
+  // Function to check if email is allowed
+  const isEmailAllowed = (email: string): boolean => {
+    const allowedEmails = [
+      "vinicius.affonso@hotmart.com",
+      "roberto.proenca@hotmart.com",
+      "samuel.silva@hotmart.com",
+      "alarcone.almeida@hotmart.com",
+    ];
+    return allowedEmails.includes(email.toLowerCase());
+  };
 
   const handleConnect = async () => {
     if (!isComplete) {
       toast.error("Por favor, preencha todos os campos obrigatórios");
+      return;
+    }
+
+    if (!isEmailAllowed(credentials.email)) {
+      toast.error("Email não autorizado para acessar esta aplicação.");
       return;
     }
 
@@ -67,7 +77,9 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">Hotmart Jira Analytics</CardTitle>
+        <CardTitle className="text-2xl font-bold">
+          Hotmart Jira Analytics
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
@@ -124,13 +136,21 @@ const JiraConnector: React.FC<JiraConnectorProps> = ({ onConnect }) => {
               onChange={(e) => updateCredential("projectKey", e.target.value)}
             />
           </div>
-
         </div>
+
+        {credentials.email && !isEmailAllowed(credentials.email) && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+            Acesso restrito. Apenas emails autorizados podem acessar esta
+            aplicação.
+          </div>
+        )}
 
         <div className="flex justify-end space-x-4">
           <Button
             onClick={handleConnect}
-            disabled={isConnecting || !isComplete}
+            disabled={
+              isConnecting || !isComplete || !isEmailAllowed(credentials.email)
+            }
             className="w-full sm:w-auto"
           >
             {isConnecting ? (

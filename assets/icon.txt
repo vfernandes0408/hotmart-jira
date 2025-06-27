@@ -1,0 +1,2 @@
+Please replace this file with a proper icon.png file (1024x1024 pixels).
+You can convert the favicon.ico to PNG using online tools or ImageMagick.

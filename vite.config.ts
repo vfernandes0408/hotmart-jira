@@ -7,8 +7,8 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   server: {
-    host: "::",
-    port: 8888,
+    host: true,
+    port: 5173,
     allowedHosts: [
       "hotmart.vmanager.app",
     ],
@@ -35,6 +35,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: undefined,
+        assetFileNames: 'assets/[name].[ext]'
       },
     },
   },
