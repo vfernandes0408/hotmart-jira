@@ -140,62 +140,57 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
     }
   };
 
-  // Initialize with all emails on first load
+  // Initialize with all emails on first load (without auto-loading data)
   useEffect(() => {
     if (isFirstQuery && data?.allEmails && activeEmails.length === 0) {
       const allEmails = Array.isArray(data.allEmails) ? data.allEmails : [];
       setActiveEmails(allEmails);
     }
   }, [data?.allEmails, isFirstQuery, activeEmails.length]);
-  
-  // Auto-load data when activeEmails is set for the first time
-  useEffect(() => {
-    if (activeEmails.length > 0 && githubUsers.length === 0 && !isLoadingUsers) {
-      loadGithubData();
-    }
-  }, [activeEmails.length, githubUsers.length, isLoadingUsers]);
 
   const handleApplyFilters = async () => {
     const filteredEmails = Array.isArray(data?.emails) ? data.emails : [];
     
-    setActiveEmails(filteredEmails);
+    if (filteredEmails.length === 0) {
+      toast.error('Nenhum email para buscar no GitHub');
+      return;
+    }
     
-    if (filteredEmails.length > 0) {
-      setIsLoadingUsers(true);
-      try {
-        const results = await mutation.mutateAsync({
-          emails: filteredEmails,
-          startDate: memoizedDateRange.from,
-          endDate: memoizedDateRange.to,
-        });
-        
-        
-        const validUsers = results
-          .filter((result: any) => result.data && !result.error)
-          .map((result: any) => ({
-            ...result.data,
-            email: result.email,
-            comments: 0,
-            reactions: 0,
-            lastUpdated: new Date().toISOString(),
-          }));
-        
-        const failedUsers = results.filter((result: any) => result.error || !result.data);
-        
-        setGithubUsers(validUsers);
-        setNotFoundUsers(failedUsers.map((u: any) => u.email));
-        
-        if (failedUsers.length > 0) {
-          toast.success(`Filtros aplicados! ${validUsers.length} de ${filteredEmails.length} usuários encontrados no GitHub.`);
-        } else {
-          toast.success(`Filtros aplicados! ${validUsers.length} usuários encontrados.`);
-        }
-      } catch (error) {
-        console.error('Erro ao aplicar filtros:', error);
-        toast.error('Erro ao aplicar filtros');
-      } finally {
-        setIsLoadingUsers(false);
+    setActiveEmails(filteredEmails);
+    setIsLoadingUsers(true);
+    
+    try {
+      const results = await mutation.mutateAsync({
+        emails: filteredEmails,
+        startDate: memoizedDateRange.from,
+        endDate: memoizedDateRange.to,
+      });
+      
+      const validUsers = results
+        .filter((result: any) => result.data && !result.error)
+        .map((result: any) => ({
+          ...result.data,
+          email: result.email,
+          comments: 0,
+          reactions: 0,
+          lastUpdated: new Date().toISOString(),
+        }));
+      
+      const failedUsers = results.filter((result: any) => result.error || !result.data);
+      
+      setGithubUsers(validUsers);
+      setNotFoundUsers(failedUsers.map((u: any) => u.email));
+      
+      if (failedUsers.length > 0) {
+        toast.success(`Filtros aplicados! ${validUsers.length} de ${filteredEmails.length} usuários encontrados no GitHub.`);
+      } else {
+        toast.success(`Filtros aplicados! ${validUsers.length} usuários encontrados.`);
       }
+    } catch (error) {
+      console.error('Erro ao aplicar filtros:', error);
+      toast.error('Erro ao carregar dados do GitHub');
+    } finally {
+      setIsLoadingUsers(false);
     }
   };
 
@@ -222,17 +217,7 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
   // Calcula métricas totais baseado nos dados carregados
   const githubData = useMemo(() => {
     if (!githubUsers.length) {
-      return {
-        commits: 0,
-        pullRequests: 0,
-        reviews: 0,
-        comments: 0,
-        reactions: 0,
-        changedFiles: 0,
-        additions: 0,
-        deletions: 0,
-        lastUpdated: new Date().toISOString(),
-      };
+      return null;
     }
 
     const totals = {
@@ -275,6 +260,10 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
   const isError = false;
 
   const handleRefresh = () => {
+    if (activeEmails.length === 0) {
+      toast.error('Nenhum email ativo para atualizar');
+      return;
+    }
     loadGithubData();
   };
 
@@ -845,10 +834,10 @@ const GithubMetrics: React.FC<GithubMetricsProps> = ({ data, dateRange, isFirstQ
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center p-4 text-center">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-2">
               {isLoading
                 ? "Carregando métricas..."
-                : "Nenhuma métrica disponível"}
+                : "Clique em 'Aplicar Filtros' para carregar as métricas do GitHub"}
             </p>
           </div>
         )}

@@ -365,11 +365,8 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-1 mt-2">
                 <div className="max-h-[200px] overflow-y-auto pr-2">
-                  {/* Mostrar apenas as pessoas selecionadas ou todas se nenhuma estiver selecionada */}
-                  {(selectedPeople.length > 0
-                    ? selectedPeople
-                    : uniqueAssignees
-                  ).map((assignee) => {
+                  {/* Sempre mostrar todos os assignees disponíveis */}
+                  {uniqueAssignees.map((assignee) => {
                     const currentAssignees = Array.isArray(filters.assignee)
                       ? filters.assignee
                       : filters.assignee

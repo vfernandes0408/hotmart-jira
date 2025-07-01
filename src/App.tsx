@@ -5,7 +5,7 @@ import { Toaster } from "sonner";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,18 @@ const AppContent = () => {
       toast.success("Token da OpenAI removido com sucesso!");
     }
   };
+
+  useEffect(() => {
+    const handleOpenGithubModal = () => {
+      handleGithubClick();
+    };
+
+    window.addEventListener("openGithubModal", handleOpenGithubModal);
+    
+    return () => {
+      window.removeEventListener("openGithubModal", handleOpenGithubModal);
+    };
+  }, [apiKeys]);
 
   return (
     <div className="min-h-screen bg-gray-50">
