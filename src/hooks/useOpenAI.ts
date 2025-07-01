@@ -91,7 +91,8 @@ export const useOpenAI = () => {
 
   return useMutation({
     mutationFn: async (data: { users: any[] }) => {
-      const apiKey = localStorage.getItem('openai_api_key');
+      const iaKeys = JSON.parse(localStorage.getItem('iaKeys') || '{}');
+      const apiKey = iaKeys.openai;
       if (!apiKey) {
         throw new Error('Chave da API OpenAI não configurada');
       }
